@@ -85,7 +85,6 @@ button:hover {
 .comment {
   padding: 0.5rem;
   border-bottom: 1px solid #333;
-  animation: fadeIn 0.3s ease-in;
 }
 
 .username {
@@ -144,17 +143,7 @@ button:hover {
   margin-right: 0.3rem;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* Toggle Switch Styles */
 .speech-toggle-wrapper {
