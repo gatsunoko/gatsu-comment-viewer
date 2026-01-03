@@ -1,6 +1,10 @@
 import './style.css'
 import tmi from 'tmi.js'
-import { NiconamaClient, createNiconamaClient } from "./src"
+import { NiconicoClient } from "./niconico"
+
+declare global {
+  var nicoClient: NiconicoClient | any;
+}
 
 const startBtn = document.querySelector<HTMLButtonElement>('#start-btn')!;
 const urlInput = document.querySelector<HTMLInputElement>('#twitch-url')!;
@@ -351,42 +355,43 @@ startBtn.addEventListener('click', async () => {
     try {
       const nicoUrl = url.includes('http') ? url : `https://live.nicovideo.jp/watch/${url}`;
       addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
-      activeChannels.add(channelId); // Use url or ID?
+      activeChannels.add(channelId);
       updateActiveChannelsUI();
 
       if (globalThis.nicoClient) {
-        globalThis.nicoClient.disconnectWs();
-        globalThis.nicoClient.disconnectMsg();
+        // Check if it has destroy method (new client)
+        if (globalThis.nicoClient.destroy) {
+          await globalThis.nicoClient.destroy();
+        } else {
+          // Fallback for old client structure if mixed
+          if (globalThis.nicoClient.disconnectWs) globalThis.nicoClient.disconnectWs();
+          if (globalThis.nicoClient.disconnectMsg) globalThis.nicoClient.disconnectMsg();
+        }
       }
 
-      // ニコ生に接続するメイン部分
-      // - createNiconamaClient(URL) で接続
-      // - 詳しい説明は `Re.ResultAsync` の内容をAIに聞いて下さい
+      // Initialize new Rust-backed client
+      const { NiconicoClient } = await import('./niconico'); // Corrected path
 
-      globalThis.nicoClient = await createNiconamaClient(nicoUrl)
-        .unwrap();
+      globalThis.nicoClient = new NiconicoClient((msg: any) => {
+        // Rust backend returns { author, message } objects directly in 'comment' event
+        // But wait, my src/niconico.ts setupListener calls onMessage(event.payload)
+        // payload is CommentEvent { author, message } or SystemEvent
 
+        if (msg.author === 'System') {
+          // System message
+          // addComment('System', 'System', msg.message, 'system');
+          // Or handle specific system events?
+          // Use channelId as channel
+          addComment(channelId, 'System', msg.message, 'system');
+        } else {
+          // Chat message
+          addComment(channelId, msg.author, msg.message, 'niconico');
+        }
+      });
+
+      await globalThis.nicoClient.join(nicoUrl);
       urlInput.value = '';
 
-      (async () => {
-        // ニコ生のメッセージを「非同期イテレータ」で取り出します
-        for await (const msg of globalThis.nicoClient!.messageIterator) {
-          // ニコ生のメッセージの内容に応じて処理を分けます
-          // - msg.payload.case: メッセージの種類
-          // - msg.payload.value: メッセージの内容
-          // - case: "message" はコメント内容や、コメント・ギフト等
-          //   - msg.payload.value.data.case: コメントの種類
-          //   - msg.payload.value.data.value: コメントの内容
-          if (msg.payload.case === "message") {
-            const { data } = msg.payload.value
-            if (data.case === "chat") {
-              const chat = data.value;
-              const name = chat.name || chat.hashedUserId || (chat as any).hashed_user_id || 'Anonymous';
-              addComment(channelId, name, chat.content, 'niconico');
-            }
-          }
-        }
-      })();
       return;
     } catch (e) {
       console.error(e);

@@ -32,7 +32,7 @@ message ChunkedMessage {
   oneof payload {
     NicoliveMessage message = 2;
     NicoliveState state = 4;
-    Signal signal = 5;
+    Signal.SignalType signal = 5;
   }
 }
 
