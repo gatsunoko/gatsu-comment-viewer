@@ -187,9 +187,15 @@ const removeChannel = async (channel: string) => {
   // Niconico Cleanup
   // Niconico Cleanup
   if ((channel.startsWith('lv') || channel.startsWith('co'))) {
-    if (globalThis.nicoClient && globalThis.nicoClient.pageContext?.liveId === channel) {
-      globalThis.nicoClient.disconnectWs();
-      globalThis.nicoClient.disconnectMsg();
+    if (globalThis.nicoClient) {
+      // Check if it has destroy method (new client)
+      if (globalThis.nicoClient.destroy) {
+        await globalThis.nicoClient.destroy();
+      } else {
+        // Fallback for old client structure if mixed
+        if (globalThis.nicoClient.disconnectWs) globalThis.nicoClient.disconnectWs();
+        if (globalThis.nicoClient.disconnectMsg) globalThis.nicoClient.disconnectMsg();
+      }
       globalThis.nicoClient = undefined;
     }
     activeChannels.delete(channel);

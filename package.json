@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "node server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
@@ -12,17 +14,18 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
     "@types/tmi.js": "^1.8.6",
+    "concurrently": "^9.2.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.6.3",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "protobufjs": "^8.0.0",
     "tmi.js": "^1.8.5",
     "ws": "^8.18.3",
-    "youtube-chat": "^2.2.0",
-    "@bufbuild/protobuf": "^2.6.3"
+    "youtube-chat": "^2.2.0"
   }
 }
