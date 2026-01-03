@@ -190,3 +190,35 @@ button:hover {
   font-weight: 500;
   user-select: none;
 }
+
+.comments-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+#scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(100, 108, 255, 0.9);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  font-size: 0.9rem;
+  z-index: 10;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+#scroll-to-bottom-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+}
+
+#scroll-to-bottom-btn:hover {
+  background-color: rgba(83, 91, 242, 1);
+}

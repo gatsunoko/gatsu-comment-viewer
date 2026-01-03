@@ -6,6 +6,7 @@ const startBtn = document.querySelector<HTMLButtonElement>('#start-btn')!;
 const urlInput = document.querySelector<HTMLInputElement>('#twitch-url')!;
 const commentsContainer = document.querySelector<HTMLDivElement>('#comments-container')!;
 const activeChannelsContainer = document.querySelector<HTMLDivElement>('#active-channels')!;
+const scrollBtn = document.querySelector<HTMLButtonElement>('#scroll-to-bottom-btn')!;
 
 let client: tmi.Client | null = null;
 const activeChannels = new Set<string>();
@@ -68,6 +69,11 @@ async function speak(text: string) {
 }
 
 const addComment = (channel: string, username: string, messageHTML: string) => {
+  // Check if user is at the bottom BEFORE adding the new comment
+  // Use a small threshold (e.g. 20px) to account for minor discrepancies
+  const threshold = 20;
+  const isAtBottom = commentsContainer.scrollHeight - commentsContainer.scrollTop - commentsContainer.clientHeight <= threshold;
+
   const div = document.createElement('div');
   div.className = 'comment';
   // channel usually comes as #channelname, remove #
@@ -75,7 +81,15 @@ const addComment = (channel: string, username: string, messageHTML: string) => {
 
   div.innerHTML = `<span class="channel-name">[${cleanChannel}]</span><span class="username">${username}:</span> <span class="message">${messageHTML}</span>`;
   commentsContainer.appendChild(div);
-  commentsContainer.scrollTop = commentsContainer.scrollHeight;
+
+  if (isAtBottom) {
+    commentsContainer.scrollTop = commentsContainer.scrollHeight;
+    // Ensure button is hidden if we auto-scrolled
+    scrollBtn.classList.add('hidden');
+  } else {
+    // If we didn't auto-scroll (user is reading history), ensure button is visible
+    scrollBtn.classList.remove('hidden');
+  }
 
   // Speak (strip HTML tags for speech)
   const tempDiv = document.createElement('div');
@@ -158,6 +172,22 @@ const extractChannel = (url: string): string | null => {
     return url.trim() || null;
   }
 }
+
+// Scroll to bottom logic
+scrollBtn.addEventListener('click', () => {
+  commentsContainer.scrollTop = commentsContainer.scrollHeight;
+  scrollBtn.classList.add('hidden');
+});
+
+commentsContainer.addEventListener('scroll', () => {
+  const threshold = 20;
+  const isAtBottom = commentsContainer.scrollHeight - commentsContainer.scrollTop - commentsContainer.clientHeight <= threshold;
+  if (isAtBottom) {
+    scrollBtn.classList.add('hidden');
+  } else {
+    scrollBtn.classList.remove('hidden');
+  }
+});
 
 startBtn.addEventListener('click', async () => {
   const url = urlInput.value;
