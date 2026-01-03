@@ -270,6 +270,8 @@ startBtn.addEventListener('click', async () => {
       globalThis.nicoClient = await createNiconamaClient(nicoUrl)
         .unwrap();
 
+      urlInput.value = '';
+
       (async () => {
         // ニコ生のメッセージを「非同期イテレータ」で取り出します
         for await (const msg of globalThis.nicoClient!.messageIterator) {
