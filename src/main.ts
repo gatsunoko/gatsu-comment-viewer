@@ -285,7 +285,8 @@ startBtn.addEventListener('click', async () => {
             const { data } = msg.payload.value
             if (data.case === "chat") {
               const chat = data.value;
-              addComment(channelId, chat.name || 'Anonymous', chat.content);
+              const name = chat.name || chat.hashedUserId || (chat as any).hashed_user_id || 'Anonymous';
+              addComment(channelId, name, chat.content);
             }
           }
         }

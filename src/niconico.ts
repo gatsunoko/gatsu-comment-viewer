@@ -262,7 +262,7 @@ export class NiconicoClient {
         const realChat = chat || msg?.message?.chat || msg?.payload?.message?.chat || msg?.payload?.message?.data?.chat;
 
         if (realChat && realChat.content) {
-            const name = realChat.name || 'Anonymous';
+            const name = realChat.name || realChat.hashedUserId || realChat.hashed_user_id || 'Anonymous';
             this.onMessage({ author: name, message: realChat.content });
         }
     }
