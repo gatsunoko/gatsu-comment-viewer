@@ -145,6 +145,49 @@ button:hover {
   color: #646cff;
   /* Vite color for channel name in message */
   margin-right: 0.3rem;
+  display: none;
+  /* Hidden by default, shown via modifier class */
+}
+
+.show-channel-name .channel-name {
+  display: inline;
+}
+
+/* Source Badges */
+.source-badge {
+  display: none;
+  /* Hidden by default */
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: bold;
+  color: #fff;
+  margin-right: 0.5rem;
+  text-transform: capitalize;
+  min-width: 60px;
+  text-align: center;
+}
+
+.show-source .source-badge {
+  display: inline-block;
+}
+
+.source-badge.niconico {
+  background-color: #252525;
+  border: 1px solid #555;
+}
+
+.source-badge.youtube {
+  background-color: #ff0000;
+}
+
+.source-badge.twitch {
+  background-color: #6441a5;
+}
+
+.source-badge.system {
+  background-color: #555;
+  font-style: italic;
 }
 
 
@@ -156,7 +199,7 @@ button:hover {
   gap: 10px;
 }
 
-#speech-toggle {
+.toggle-input {
   appearance: none;
   width: 40px;
   height: 20px;
@@ -168,7 +211,7 @@ button:hover {
   transition: background 0.3s;
 }
 
-#speech-toggle::after {
+.toggle-input::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -180,11 +223,11 @@ button:hover {
   transition: transform 0.3s;
 }
 
-#speech-toggle:checked {
+.toggle-input:checked {
   background: #646cff;
 }
 
-#speech-toggle:checked::after {
+.toggle-input:checked::after {
   transform: translateX(20px);
 }
 

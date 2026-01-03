@@ -7,6 +7,67 @@ const urlInput = document.querySelector<HTMLInputElement>('#twitch-url')!;
 const commentsContainer = document.querySelector<HTMLDivElement>('#comments-container')!;
 const activeChannelsContainer = document.querySelector<HTMLDivElement>('#active-channels')!;
 const scrollBtn = document.querySelector<HTMLButtonElement>('#scroll-to-bottom-btn')!;
+const sourceToggle = document.querySelector<HTMLInputElement>('#source-toggle')!;
+const channelNameToggle = document.querySelector<HTMLInputElement>('#channel-name-toggle')!;
+const speechToggle = document.querySelector<HTMLInputElement>('#speech-toggle')!;
+
+// Settings Persistence
+const saveSettings = () => {
+  const settings = {
+    speech: speechToggle.checked,
+    source: sourceToggle.checked,
+    channelName: channelNameToggle.checked
+  };
+  localStorage.setItem('commentViewerSettings', JSON.stringify(settings));
+};
+
+const loadSettings = () => {
+  const settingsJson = localStorage.getItem('commentViewerSettings');
+  if (settingsJson) {
+    try {
+      const settings = JSON.parse(settingsJson);
+      if (typeof settings.speech === 'boolean') speechToggle.checked = settings.speech;
+      if (typeof settings.source === 'boolean') sourceToggle.checked = settings.source;
+      if (typeof settings.channelName === 'boolean') channelNameToggle.checked = settings.channelName;
+    } catch (e) {
+      console.error('Failed to load settings', e);
+    }
+  }
+
+  // Apply visual states based on loaded (or default) values
+  if (sourceToggle.checked) {
+    commentsContainer.classList.add('show-source');
+  } else {
+    commentsContainer.classList.remove('show-source');
+  }
+
+  if (channelNameToggle.checked) {
+    commentsContainer.classList.add('show-channel-name');
+  } else {
+    commentsContainer.classList.remove('show-channel-name');
+  }
+};
+
+// Initialize settings
+loadSettings();
+
+sourceToggle.addEventListener('change', () => {
+  if (sourceToggle.checked) {
+    commentsContainer.classList.add('show-source');
+  } else {
+    commentsContainer.classList.remove('show-source');
+  }
+  saveSettings();
+});
+
+channelNameToggle.addEventListener('change', () => {
+  if (channelNameToggle.checked) {
+    commentsContainer.classList.add('show-channel-name');
+  } else {
+    commentsContainer.classList.remove('show-channel-name');
+  }
+  saveSettings();
+});
 
 let client: tmi.Client | null = null;
 const activeChannels = new Set<string>();
@@ -49,8 +110,6 @@ const formatMessage = (message: string, emotes: { [key: string]: string[] } | nu
   return result;
 };
 
-const speechToggle = document.querySelector<HTMLInputElement>('#speech-toggle')!;
-
 async function speak(text: string) {
   if (!speechToggle.checked) return;
   try {
@@ -68,7 +127,9 @@ async function speak(text: string) {
   }
 }
 
-const addComment = (channel: string, username: string, messageHTML: string) => {
+type CommentSource = 'twitch' | 'youtube' | 'niconico' | 'system';
+
+const addComment = (channel: string, username: string, messageHTML: string, source: CommentSource) => {
   // Check if user is at the bottom BEFORE adding the new comment
   // Use a small threshold (e.g. 20px) to account for minor discrepancies
   const threshold = 20;
@@ -79,7 +140,7 @@ const addComment = (channel: string, username: string, messageHTML: string) => {
   // channel usually comes as #channelname, remove #
   const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
 
-  div.innerHTML = `<span class="channel-name">[${cleanChannel}]</span><span class="username">${username}:</span> <span class="message">${messageHTML}</span>`;
+  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username">${username}:</span> <span class="message">${messageHTML}</span>`;
   commentsContainer.appendChild(div);
 
   if (isAtBottom) {
@@ -129,7 +190,7 @@ const removeChannel = async (channel: string) => {
     }
     activeChannels.delete(channel);
     updateActiveChannelsUI();
-    addComment(channel, 'System', 'Left Niconico channel');
+    addComment(channel, 'System', 'Left Niconico channel', 'system');
     return;
   }
 
@@ -139,7 +200,7 @@ const removeChannel = async (channel: string) => {
       await client.part(channel);
       activeChannels.delete(channel);
       updateActiveChannelsUI();
-      addComment(channel, 'System', `Left channel ${channel}.`);
+      addComment(channel, 'System', `Left channel ${channel}.`, 'system');
       return;
     } catch (e) {
       // If it fails, maybe it wasn't a Twitch channel, proceed to try API leave
@@ -155,7 +216,7 @@ const removeChannel = async (channel: string) => {
     });
     activeChannels.delete(channel);
     updateActiveChannelsUI();
-    addComment(channel, 'System', `Left YouTube stream ${channel}.`);
+    addComment(channel, 'System', `Left YouTube stream ${channel}.`, 'system');
   } catch (e) {
     console.error(e);
   }
@@ -246,7 +307,7 @@ startBtn.addEventListener('click', async () => {
       const id = joinData.id;
       activeChannels.add(id);
       updateActiveChannelsUI();
-      addComment(id, 'System', `Joined YouTube stream: ${id}`);
+      addComment(id, 'System', `Joined YouTube stream: ${id}`, 'system');
 
       // 2. Start Polling
       const pollInterval = setInterval(async () => {
@@ -267,7 +328,7 @@ startBtn.addEventListener('click', async () => {
               } else {
                 content = msg.message;
               }
-              addComment(id, msg.author, content);
+              addComment(id, msg.author, content, 'youtube');
             });
           }
         } catch (err) {
@@ -280,7 +341,7 @@ startBtn.addEventListener('click', async () => {
 
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', `Failed to join YouTube: ${e}`);
+      addComment('System', 'Error', `Failed to join YouTube: ${e}`, 'system');
       return;
     }
   }
@@ -289,7 +350,7 @@ startBtn.addEventListener('click', async () => {
   if (isNiconico) {
     try {
       const nicoUrl = url.includes('http') ? url : `https://live.nicovideo.jp/watch/${url}`;
-      addComment('System', 'System', `Joining Niconico via Client: ${channelId}`);
+      addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
       activeChannels.add(channelId); // Use url or ID?
       updateActiveChannelsUI();
 
@@ -321,7 +382,7 @@ startBtn.addEventListener('click', async () => {
             if (data.case === "chat") {
               const chat = data.value;
               const name = chat.name || chat.hashedUserId || (chat as any).hashed_user_id || 'Anonymous';
-              addComment(channelId, name, chat.content);
+              addComment(channelId, name, chat.content, 'niconico');
             }
           }
         }
@@ -329,7 +390,7 @@ startBtn.addEventListener('click', async () => {
       return;
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', `Failed to join Niconico: ${e}`);
+      addComment('System', 'Error', `Failed to join Niconico: ${e}`, 'system');
       return;
     }
   }
@@ -343,18 +404,18 @@ startBtn.addEventListener('click', async () => {
 
     client.on('message', (channel, tags, message, _self) => {
       const formattedMessage = formatMessage(message, tags.emotes);
-      addComment(channel, tags['display-name'] || 'Anonymous', formattedMessage);
+      addComment(channel, tags['display-name'] || 'Anonymous', formattedMessage, 'twitch');
     });
 
     client.on('connected', (address, port) => {
-      addComment('System', 'System', `Connected to Twitch Chat server at ${address}:${port}`);
+      addComment('System', 'System', `Connected to Twitch Chat server at ${address}:${port}`, 'system');
     });
 
     try {
       await client.connect();
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', 'Failed to connect to Twitch.');
+      addComment('System', 'Error', 'Failed to connect to Twitch.', 'system');
       return;
     }
   }
@@ -363,10 +424,10 @@ startBtn.addEventListener('click', async () => {
     await client.join(channel);
     activeChannels.add(channel.toLowerCase());
     updateActiveChannelsUI();
-    addComment(channel, 'System', `Joined channel!`);
+    addComment(channel, 'System', `Joined channel!`, 'system');
     urlInput.value = ''; // Clear input
   } catch (e) {
     console.error(e);
-    addComment('System', 'Error', `Failed to join ${channel}: ${e}`);
+    addComment('System', 'Error', `Failed to join ${channel}: ${e}`, 'system');
   }
 });
