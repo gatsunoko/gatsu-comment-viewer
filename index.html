@@ -13,9 +13,10 @@
     <div class="input-group">
       <input type="text" id="twitch-url" placeholder="Enter Twitch URL (e.g. https://www.twitch.tv/shroud)" />
       <button id="start-btn">Start</button>
-      <label style="margin-left: 10px; color: white;">
-        <input type="checkbox" id="speech-toggle"> Speech
-      </label>
+      <div class="speech-toggle-wrapper">
+        <input type="checkbox" id="speech-toggle">
+        <label for="speech-toggle" class="speech-toggle-label">読み上げ</label>
+      </div>
     </div>
     <div id="active-channels"></div>
     <div id="comments-container"></div>
