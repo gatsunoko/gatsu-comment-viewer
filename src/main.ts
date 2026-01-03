@@ -106,8 +106,13 @@ const removeChannel = async (channel: string) => {
   // Check if it looks like a YouTube ID (11 chars) or fallback to activeChannels check logic in future
 
   // Niconico Cleanup
-  if ((channel.startsWith('lv') || channel.startsWith('co'))) {// && globalThis.nicoClient) {
-    // globalThis.nicoClient.leave();
+  // Niconico Cleanup
+  if ((channel.startsWith('lv') || channel.startsWith('co'))) {
+    if (globalThis.nicoClient && globalThis.nicoClient.pageContext?.liveId === channel) {
+      globalThis.nicoClient.disconnectWs();
+      globalThis.nicoClient.disconnectMsg();
+      globalThis.nicoClient = undefined;
+    }
     activeChannels.delete(channel);
     updateActiveChannelsUI();
     addComment(channel, 'System', 'Left Niconico channel');
