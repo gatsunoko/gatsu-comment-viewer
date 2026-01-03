@@ -1,0 +1,74 @@
+import type { ExFromMessage, ExSource, ExtFromData } from "./type";
+
+/**
+ * ウェブページ → 拡張機能 (content)
+ */
+export function sendToExtension(data: ExtFromData<"webpage">, transfer?: Transferable[]): void {
+  postMessage({ from: "webpage", data }, transfer);
+}
+
+/**
+ * 拡張機能 (content) → ウェブページ
+ */
+export function sendToWebsite(data: ExtFromData<"extension">, transfer?: Transferable[]): void {
+  postMessage({ from: "extension", data }, transfer);
+}
+
+/**
+ * 拡張機能 (content) → 拡張機能 (ServiceWorker)
+ */
+export async function sendToSw(msg: ExtFromData<"webpage">): Promise<ExFromMessage<"extension"> | void> {
+  return chrome.runtime.sendMessage(msg);
+}
+
+/**
+ * 拡張機能 (ServiceWorker) → 特定のタブ (拡張機能 content)
+ */
+export function sendToTab(tabId: number, msg: ExtFromData<"extension">): void {
+  chrome.tabs.sendMessage(tabId, msg);
+}
+
+
+
+/**
+ * 拡張機能用の `window` リスナー登録関数
+ * @param from 受信するメッセージの送信元
+ * @param fn メッセージ受信時に実行する関数
+ * @returns 登録を解除する関数
+ */
+export function addExtWindowListner<S extends ExSource>(
+  from: S,
+  fn: (data: ExtFromData<S>) => void
+): () => void {
+  window.addEventListener("message", callbackFn);
+  return () => {
+    window.removeEventListener("message", callbackFn);
+  };
+
+  function callbackFn(event: MessageEvent<ExFromMessage<S>>): void {
+    const { from: _from, data } = event.data;
+    if (_from === from) fn(data);
+  }
+}
+
+/**
+ * 拡張機能用 (ServiceWorker) 用のリスナー登録関数
+ * @param fn メッセージ受信時に実行する関数
+ * @returns 登録を解除する関数
+ */
+export function addSwListner(
+  fn: (
+    data: ExtFromData<"webpage">,
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response?: ExtFromData<"extension">) => void,
+  ) => void
+): () => void {
+  chrome.runtime.onMessage.addListener(fn);
+  return () => chrome.runtime.onMessage.removeListener(fn);
+}
+
+
+
+function postMessage<S extends ExSource>(data: ExFromMessage<S>, transfer?: Transferable[]): void {
+  window.postMessage(data, "*", transfer);
+}

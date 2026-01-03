@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comment Viewer</title>
+</head>
+
+<body>
+  <div id="app">
+    <div class="input-group">
+      <input type="text" id="twitch-url" placeholder="Enter Twitch URL (e.g. https://www.twitch.tv/shroud)" />
+      <button id="start-btn">Start</button>
+      <label style="margin-left: 10px; color: white;">
+        <input type="checkbox" id="speech-toggle"> Speech
+      </label>
+    </div>
+    <div id="active-channels"></div>
+    <div id="comments-container"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

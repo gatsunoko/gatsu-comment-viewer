@@ -1,0 +1,732 @@
+syntax = "proto3";
+package dwango.nicolive.chat.service.edge;
+
+// File: forwarded.proto
+
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data.atoms;
+import "dwango/nicolive/chat/data/atoms.proto";
+
+
+message ForwardedChat {
+
+    Chat chat = 1;
+
+    
+    string message_id = 2;
+
+    
+    int64 source_live_id = 3;
+
+
+    enum ForwardingMode {
+        
+        UNKNOWN = 0;
+
+        
+        FROM_CRUISE = 1;
+        
+        
+        COLLAB_SHARING = 2;
+    }
+    
+    ForwardingMode mode = 4;
+}
+
+
+// File: moderator.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data.atoms;
+
+import "google/protobuf/timestamp.proto";
+
+
+message ModeratorUserInfo {
+    int64 user_id = 1;
+    optional string nickname = 2;
+    optional string iconUrl = 3;
+}
+
+
+message ModeratorUpdated {
+    enum ModeratorOperation {
+        ADD = 0;
+        DELETE = 1;
+    }
+    
+    ModeratorOperation operation = 1;
+    
+    ModeratorUserInfo operator = 2;
+    
+    google.protobuf.Timestamp updatedAt = 3;
+}
+
+
+message SSNGUpdated {
+    enum SSNGOperation {
+        ADD = 0;
+        DELETE = 1;
+    }
+    enum SSNGType {
+        USER = 0;
+        WORD = 1;
+        COMMAND = 2;
+    }
+    
+    SSNGOperation operation = 1;
+    
+    int64 ssng_id = 2;
+    
+    ModeratorUserInfo operator = 3;
+    
+    optional SSNGType type = 4;
+    
+    optional string source = 5;
+    
+    optional google.protobuf.Timestamp updatedAt = 6;
+    enum SSNGOperatorType {
+        MODERATOR = 0;
+        BROADCASTER = 1;
+    }
+    
+    SSNGOperatorType operator_type = 7;
+}
+
+
+message ModerationAnnouncement {
+    enum GuidelineItem {
+        UNKNOWN = 0;
+        SEXUAL = 1;
+        SPAM = 2;
+        SLANDER = 3;
+        PERSONAL_INFORMATION = 4;
+    }
+    
+    optional string message = 1;
+    
+    repeated GuidelineItem guidelineItems = 2;
+    
+    google.protobuf.Timestamp updatedAt = 3;
+}
+
+
+
+// File: notifications.proto
+// syntax = "proto3";
+// package dwango.nicolive.chat.data.atoms;
+
+message SimpleNotificationV2 {
+  enum NotificationType {
+    
+    UNKNOWN = 0;
+
+    
+    ICHIBA = 1;
+
+    
+    EMOTION = 2;
+
+    
+    CRUISE = 3;
+
+    
+    PROGRAM_EXTENDED = 4;
+
+    
+    RANKING_IN = 5;
+
+    
+    VISITED = 6;
+
+    
+    SUPPORTER_REGISTERED = 7;
+
+    
+    USER_LEVEL_UP = 8;
+  }
+  
+  NotificationType type = 1;
+
+  
+  string message = 2;
+
+  
+  bool show_in_telop = 3;
+
+  
+  bool show_in_list = 4;
+}
+
+
+// File: sensitive.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data.atoms;
+
+
+
+
+// File: atoms.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data;
+import "google/protobuf/duration.proto";
+
+
+message Chat {
+  
+  string content = 1;
+
+  int32 vpos = 3;
+
+  enum AccountStatus {
+    Standard = 0;
+    Premium = 1;
+  }
+  
+  AccountStatus account_status = 4;
+
+  optional string name = 2;
+  
+  optional int64 raw_user_id = 5;
+
+  optional string hashed_user_id = 6;
+
+  
+  message Modifier {
+    
+    enum Pos {
+      naka = 0;
+      shita = 1;
+      ue = 2;
+    }
+    Pos position = 1;
+
+    
+    enum Size {
+      medium = 0;
+      small = 1;
+      big = 2;
+    }
+    Size size = 2;
+
+    
+    enum ColorName {
+      white = 0;
+      red = 1;
+      pink = 2;
+      orange = 3;
+      yellow = 4;
+      green = 5;
+      cyan = 6;
+      blue = 7;
+      purple = 8;
+      black = 9;
+      white2 = 10;
+      red2 = 11;
+      pink2 = 12;
+      orange2 = 13;
+      yellow2 = 14;
+      green2 = 15;
+      cyan2 = 16;
+      blue2 = 17;
+      purple2 = 18;
+      black2 = 19;
+    }
+
+    
+    message FullColor {
+      int32 r = 1;
+      int32 g = 2;
+      int32 b = 3;
+    }
+    oneof color {
+      ColorName named_color = 3;
+      FullColor full_color = 4;
+    }
+
+    enum Font {
+      defont = 0;
+      mincho = 1;
+      gothic = 2;
+    }
+    Font font = 5;
+
+    enum Opacity {
+      
+      Normal = 0;
+      
+      Translucent = 1;
+    }
+    Opacity opacity = 6;
+  }
+  Modifier modifier = 7;
+
+  
+  
+  
+  
+  
+  
+  
+  
+  int32 no = 8;
+}
+
+
+message OperatorComment {
+  string content = 1;
+
+  optional string name = 2;
+
+  Chat.Modifier modifier = 3;
+
+  optional string link = 4;
+}
+
+
+message Jump {
+  string content = 1;
+  string message = 2;
+  google.protobuf.Duration wait = 4;
+}
+
+
+message Redirect {
+  string uri = 1;
+  string message = 2;
+  google.protobuf.Duration wait = 4;
+}
+
+
+message SimpleNotification {
+  oneof message {
+    
+    string ichiba = 1;
+
+    
+    string quote = 2;
+
+    
+    string emotion = 3;
+
+    
+    string cruise = 4;
+
+    
+    string program_extended = 5;
+
+    
+    string ranking_in = 6;
+
+    
+    string ranking_updated = 8;
+
+    
+    string visited = 7;
+
+    
+    string supporter_registered = 9;
+
+    
+    string user_level_up = 10;
+  }
+}
+
+
+message Gift {
+  string item_id = 1;
+  optional int64 advertiser_user_id = 2;
+  string advertiser_name = 3;
+  int64 point = 4;
+  string message = 5;
+  string item_name = 6;
+  optional int32 contribution_rank = 7;
+}
+
+
+message Nicoad {
+  message V0 {
+    message Latest {
+      string advertiser = 1;
+      int32 point = 2;
+      optional string message = 3;
+    }
+    Latest latest = 1;
+
+    message Ranking {
+      string advertiser = 1;
+      int32 rank = 2;
+      optional string message = 3;
+      optional int32 user_rank = 4;
+    }
+    repeated Ranking ranking = 2;
+
+    int32 total_point = 3;
+  }
+
+  message V1 {
+    int32 total_ad_point = 1;
+    string message = 2;
+  }
+
+  oneof versions {
+    V0 v0 = 1;
+    V1 v1 = 2;
+  }
+}
+
+
+message CommentLock {
+  enum Status {
+    Unrestricted = 0; 
+    Locked = 1; 
+    Restricted = 2; 
+  }
+  Status status = 1;
+
+  message FollowRestriction {
+    
+    
+    google.protobuf.Duration minimum_follow_duration = 1;
+  }
+
+  
+  optional FollowRestriction follow_restriction = 2;
+}
+
+
+message CommentMode {
+  enum Layout {
+    Normal = 0;
+    SplitTop = 1;
+    Background = 2;
+  }
+  Layout layout = 1;
+}
+
+
+message GameUpdate {
+
+}
+
+message TrialPanel {
+  enum Panel {
+    Hidden = 0;  
+    Display = 1; 
+  }
+  
+  Panel panel = 1;
+
+  enum Mode {
+    Allowed = 0;   
+    Restricted = 1;
+    Forbidden = 2; 
+  }
+  
+  Mode unqualified_user = 2;
+}
+
+message ProgramStatus {
+  enum State {
+    Unknown = 0;
+    
+    Ended = 1;
+  }
+  State state = 1;
+}
+
+
+
+message TagUpdated {
+  message Tag {
+    string text = 1;
+    bool locked = 2;
+    bool reserved = 3;
+    optional string nicopedia_uri = 4;
+  }
+  repeated Tag tags = 1;
+  bool owner_locked = 2;
+}
+
+
+
+message Statistics {
+  
+  optional int64 viewers = 1;
+
+  
+  optional int64 comments = 2;
+
+  
+  optional int64 ad_points = 3;
+
+  
+  optional int64 gift_points = 4;
+
+  
+  optional int64 timeshift_reservations = 6;
+
+  reserved 5;
+}
+
+
+message Marquee {
+  message Display {
+    OperatorComment operator_comment = 1;
+
+    
+    optional google.protobuf.Duration duration = 3;
+  }
+  
+  optional Display display = 1;
+}
+
+
+message Enquete {
+  
+  string question = 1;
+
+  
+  message Choice {
+    
+    string description = 1;
+
+    
+    
+    optional int32 per_mille = 3;
+  }
+  repeated Choice choices = 2;
+
+  enum Status {
+    
+    Closed = 0;
+
+    
+    Poll = 1;
+
+    
+    Result = 2;
+  }
+
+  Status status = 3;
+}
+
+
+message MoveOrder {
+  oneof to {
+    Jump jump = 1;
+    Redirect redirect = 2;
+  }
+}
+
+
+// File: message.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data;
+import "dwango/nicolive/chat/data/atoms.proto";
+import "dwango/nicolive/chat/data/atoms/forwarded.proto";
+import "dwango/nicolive/chat/data/atoms/moderator.proto";
+import "dwango/nicolive/chat/data/atoms/notifications.proto";
+
+
+
+message NicoliveMessage {
+
+  oneof data {
+    Chat chat = 1;
+
+    SimpleNotification simple_notification = 7;
+    Gift gift = 8;
+    Nicoad nicoad = 9;
+
+    GameUpdate game_update = 13;
+
+    
+    TagUpdated tag_updated = 17;
+
+    
+    atoms.ModeratorUpdated moderator_updated = 18;
+    
+    atoms.SSNGUpdated ssng_updated = 19;
+
+    
+    Chat overflowed_chat = 20;
+
+    
+    atoms.ForwardedChat forwarded_chat = 22;
+
+    
+    atoms.SimpleNotificationV2 simple_notification_v2 = 23;
+  }
+
+  reserved 2 to 6, 10 to 12, 14 to 16;
+}
+
+
+// File: origin.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data;
+
+message NicoliveOrigin {
+  message Chat {
+    int64 live_id = 1;
+  }
+
+  oneof origin {
+    Chat chat = 1;
+  }
+}
+
+
+// File: state.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.data;
+
+import "dwango/nicolive/chat/data/atoms.proto";
+import "dwango/nicolive/chat/data/atoms/moderator.proto";
+
+message NicoliveState {
+
+  
+  optional Statistics statistics = 1;
+
+  
+  optional Enquete enquete = 2;
+
+  
+  optional MoveOrder move_order = 3;
+
+  
+  optional Marquee marquee = 4;
+
+  
+  optional CommentLock comment_lock = 5;
+
+  
+  optional CommentMode comment_mode = 6;
+
+  
+  optional TrialPanel trial_panel = 7;
+
+
+  optional ProgramStatus program_status = 9;
+
+  
+  optional atoms.ModerationAnnouncement moderation_announcement = 10;
+}
+
+
+// File: payload.proto
+// syntax = "proto3";
+
+// package dwango.nicolive.chat.service.edge;
+import "google/protobuf/timestamp.proto";
+import "dwango/nicolive/chat/data/message.proto";
+import "dwango/nicolive/chat/data/state.proto";
+import "dwango/nicolive/chat/data/origin.proto";
+
+
+
+message ChunkedMessage {
+  message Meta {
+    
+    string id = 1;
+    
+    google.protobuf.Timestamp at = 2;
+    
+    data.NicoliveOrigin origin = 3;
+  }
+  Meta meta = 1;
+  oneof payload {
+    
+    data.NicoliveMessage message = 2;
+    
+    data.NicoliveState state = 4;
+    
+    
+    
+    Signal signal = 5;
+  }
+
+  enum Signal {
+    
+    
+    Flushed = 0;
+  }
+}
+
+
+message PackedSegment {
+  
+  repeated ChunkedMessage messages = 1;
+
+  message Next {
+    string uri = 1;
+  }
+  
+  Next next = 2;
+
+  StateSnapshot snapshot = 3;
+
+  message StateSnapshot {
+    
+    string uri = 1;
+  }
+}
+
+
+
+message ChunkedEntry {
+
+  
+  oneof entry {
+    
+    BackwardSegment backward = 2;
+
+    
+    MessageSegment previous = 3;
+
+    
+    MessageSegment segment = 1;
+
+    
+    ReadyForNext next = 4;
+  }
+  message ReadyForNext {
+    int64 at = 1;
+  }
+}
+
+
+
+
+message MessageSegment {
+  
+  google.protobuf.Timestamp from = 1;
+
+  
+  google.protobuf.Timestamp until = 2;
+
+  
+  
+  string uri = 3;
+}
+
+
+
+message BackwardSegment {
+  google.protobuf.Timestamp until = 1;
+  
+  
+  PackedSegment.Next segment = 2;
+  
+  PackedSegment.StateSnapshot snapshot = 3;
+}
+
+

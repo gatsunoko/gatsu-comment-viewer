@@ -1,0 +1,78 @@
+syntax = "proto3";
+package dwango.nicolive.chat.service.edge;
+
+// Consolidated NDGR Proto
+
+message ChunkedEntry {
+  oneof entry {
+    MessageSegment segment = 1; // forward
+    // BackwardSegment backward = 2;
+    MessageSegment previous = 3;
+    ReadyForNext next = 4;
+  }
+}
+
+message MessageSegment {
+  // google.protobuf.Timestamp from = 1;
+  // google.protobuf.Timestamp until = 2;
+  string uri = 3;
+}
+
+message ReadyForNext {
+  int64 at = 1;
+}
+
+message ChunkedMessage {
+  message Meta {
+    string id = 1;
+    // google.protobuf.Timestamp at = 2;
+    // data.NicoliveOrigin origin = 3;
+  }
+  Meta meta = 1;
+  oneof payload {
+    NicoliveMessage message = 2;
+    NicoliveState state = 4;
+    Signal signal = 5;
+  }
+}
+
+message NicoliveMessage {
+  oneof data {
+    Chat chat = 1;
+    SimpleNotification simple_notification = 7;
+  }
+}
+
+message Chat {
+  string content = 1;
+  int32 vpos = 3;
+  int32 no = 8;
+  string name = 2;
+  int64 raw_user_id = 5;
+  string hashed_user_id = 6;
+}
+
+message SimpleNotification {
+    oneof message {
+        string ichiba = 1;
+        string quote = 2;
+        string emotion = 3;
+        string cruise = 4;
+        string program_extended = 5;
+        string ranking_in = 6;
+        string ranking_updated = 8;
+        string visited = 7;
+        string supporter_registered = 9;
+        string user_level_up = 10;
+    }
+}
+
+message NicoliveState {
+    // Placeholder
+}
+
+message Signal {
+    enum SignalType {
+        Flushed = 0;
+    }
+}

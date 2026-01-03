@@ -1,0 +1,45 @@
+export type ExSource = "webpage" | "extension";
+
+/**
+ * 「ウェブサイト ↔ 拡張機能」間のメッセージ型
+ * @template Source 送信元
+ */
+export interface ExFromMessage<Source extends ExSource> {
+  from: Source;
+  data: ExtFromData<Source>;
+}
+
+/**
+ * 「ウェブサイト ↔ 拡張機能」間の転送データ型
+ * @template Source 送信元
+ */
+export type ExtFromData<Source extends ExSource> = {
+  webpage: DataFromWebpage;
+  extension: DataFromExtension;
+}[Source];
+
+
+
+/** ウェブサイトから送信されるメッセージ */
+type DataFromWebpage = { key: number; } & (
+  | DataFromWebpage_Fetch
+  | { type: "any"; }
+);
+
+/** 拡張機能から送信されるメッセージ */
+type DataFromExtension = { key: number; } & (
+  | { type: "fetch_ok"; status: number; statusText: string; headers: [string, string][]; body: string; isBase64: boolean; }
+  | { type: "fetch_err"; err: string; }
+);
+
+
+
+/** Fetch 関連のメッセージ */
+type DataFromWebpage_Fetch = {
+  type: (
+    | `fetch_NICO_${"PAGE" | "AIKTB" | "OWNER_COMMENT"}`
+    | `fetch_TWITCH_${"PAGE" | "CHAT" | "EMOTES"}`
+  );
+  ids: string[];
+  init?: Omit<RequestInit, "signal">;
+};
