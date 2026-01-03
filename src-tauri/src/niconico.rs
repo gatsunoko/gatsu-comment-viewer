@@ -245,7 +245,13 @@ async fn fetch_segment(client: reqwest::Client, uri: String, app: AppHandle, see
                          if let Some(data) = nico_msg.data {
                              match data {
                                  ndgr::nicolive_message::Data::Chat(chat) => {
-                                     let name = if !chat.name.is_empty() { chat.name } else { "Anonymous".to_string() };
+                                     let name = if !chat.name.is_empty() {
+                                         chat.name
+                                     } else if !chat.hashed_user_id.is_empty() {
+                                         chat.hashed_user_id
+                                     } else {
+                                         "Anonymous".to_string()
+                                     };
                                      let _ = app.emit("comment", CommentEvent {
                                          author: name,
                                          message: chat.content,
