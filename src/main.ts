@@ -287,15 +287,29 @@ const removeChannel = async (channel: string) => {
   }
 
   // Try Twitch first if client exists
-  if (client && (channel.startsWith('#') || !channel.match(/^[\w-]{11}$/))) {
-    try {
-      await client.part(channel);
-      activeChannels.delete(channel);
-      updateActiveChannelsUI();
-      addComment(channel, 'system', 'System', `Left channel ${channel}.`, 'system');
-      return;
-    } catch (e) {
-      // If it fails, maybe it wasn't a Twitch channel, proceed to try API leave
+  // Handle both with and without # for Twitch channel names
+  const twitchChannel = channel.startsWith('#') ? channel : `#${channel}`;
+  const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
+
+  if (client) {
+    // We try to part even if we are not 100% sure it's Twitch, because we might have joined it.
+    // Worst case it errors and we catch it.
+    // Specifically check if it is NOT a YouTube ID (11 chars) to prioritize Twitch part
+    if (channel.startsWith('#') || !channel.match(/^[\w-]{11}$/)) {
+      try {
+        await client.part(twitchChannel);
+        // If successful, it was indeed Twitch
+        if (activeChannels.get(cleanChannel) === 'twitch' || activeChannels.get(cleanChannel.toLowerCase()) === 'twitch') {
+          activeChannels.delete(cleanChannel);
+          activeChannels.delete(cleanChannel.toLowerCase());
+          updateActiveChannelsUI();
+          addComment(cleanChannel, 'system', 'System', `Left Twitch channel ${cleanChannel}.`, 'system');
+          return;
+        }
+      } catch (e) {
+        // If part fails, maybe it wasn't joined or wasn't Twitch.
+        // Continue to try other methods if valid.
+      }
     }
   }
 
@@ -511,6 +525,15 @@ startBtn.addEventListener('click', async () => {
     });
 
     client.on('message', (channel, tags, message, _self) => {
+      // Normalize channel name (remove #)
+      const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
+
+      // Check if we are still "active" in this channel
+      // We check both exact match and lowercase just in case
+      if (!activeChannels.has(cleanChannel) && !activeChannels.has(cleanChannel.toLowerCase())) {
+        return;
+      }
+
       const formattedMessage = formatMessage(message, tags.emotes);
       addComment(channel, tags['user-id'] || 'anonymous', tags['display-name'] || 'Anonymous', formattedMessage, 'twitch');
     });
