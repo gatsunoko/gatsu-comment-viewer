@@ -1,5 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
-use prost::Message;
+
 use regex::Regex;
 use reqwest::header::USER_AGENT;
 use serde::Serialize;
@@ -18,6 +18,7 @@ pub mod ndgr {
 #[derive(Clone, Serialize)]
 struct CommentEvent {
     author: String,
+    user_id: String,
     message: String,
 }
 
@@ -210,7 +211,7 @@ async fn connect_and_run(url: String, app: AppHandle, running: Arc<AtomicBool>) 
                              // let seg_uri = prev.uri;
                              // ... spawn ...
                         },
-                         _ => {}
+
                     }
                 }
             }
@@ -248,12 +249,13 @@ async fn fetch_segment(client: reqwest::Client, uri: String, app: AppHandle, see
                                      let name = if !chat.name.is_empty() {
                                          chat.name
                                      } else if !chat.hashed_user_id.is_empty() {
-                                         chat.hashed_user_id
+                                         chat.hashed_user_id.clone()
                                      } else {
                                          "Anonymous".to_string()
                                      };
                                      let _ = app.emit("comment", CommentEvent {
                                          author: name,
+                                         user_id: if chat.raw_user_id != 0 { chat.raw_user_id.to_string() } else { chat.hashed_user_id.clone() },
                                          message: chat.content,
                                      });
                                  },

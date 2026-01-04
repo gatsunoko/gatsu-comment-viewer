@@ -129,6 +129,7 @@ app.post('/api/youtube/join', async (req, res) => {
             buffer.push({
                 id: chatItem.id,
                 author: chatItem.author.name,
+                userId: chatItem.author.channelId || chatItem.author.id || chatItem.author.name,
                 message: chatItem.message,
                 timestamp: chatItem.timestamp
             });
@@ -366,6 +367,7 @@ async function startMessageStream(messageUri, liveId, buffer) {
                                 buffer.push({
                                     id: chat.no ? String(chat.no) : String(Date.now()),
                                     author: chat.name || userId,
+                                    userId: userId,
                                     message: chat.content,
                                     timestamp: Date.now()
                                 });

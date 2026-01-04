@@ -1,12 +1,15 @@
 import './style.css'
 import tmi from 'tmi.js'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { NiconicoClient } from "./niconico"
+import { initDb, saveComment } from './db';
 
 declare global {
   var nicoClient: NiconicoClient | any;
 }
 
 const startBtn = document.querySelector<HTMLButtonElement>('#start-btn')!;
+const historyBtn = document.querySelector<HTMLButtonElement>('#history-btn')!;
 const urlInput = document.querySelector<HTMLInputElement>('#twitch-url')!;
 const commentsContainer = document.querySelector<HTMLDivElement>('#comments-container')!;
 const activeChannelsContainer = document.querySelector<HTMLDivElement>('#active-channels')!;
@@ -52,8 +55,9 @@ const loadSettings = () => {
   }
 };
 
-// Initialize settings
+// Initialize settings and DB
 loadSettings();
+initDb();
 
 sourceToggle.addEventListener('change', () => {
   if (sourceToggle.checked) {
@@ -84,28 +88,28 @@ sidecarCmd.on('close', data => {
   console.log(`[Sidecar] Finished with code ${data.code} signal ${data.signal}`);
   // If it crashes, we might want to restart or alert
   if (data.code !== 0) {
-    addComment('System', 'Error', `Sidecar crashed: code ${data.code}`, 'system');
+    addComment('System', 'system', 'Error', `Sidecar crashed: code ${data.code}`, 'system');
   }
 });
 sidecarCmd.on('error', error => {
   console.error(`[Sidecar] Error: "${error}"`);
-  addComment('System', 'Error', `Sidecar launch error: ${error}`, 'system');
+  addComment('System', 'system', 'Error', `Sidecar launch error: ${error}`, 'system');
 });
 sidecarCmd.stderr.on('data', line => {
   console.log(`[Sidecar Stderr]: ${line}`);
-  addComment('System', 'Error', `[Sidecar Err] ${line}`, 'system');
+  addComment('System', 'system', 'Error', `[Sidecar Err] ${line}`, 'system');
 });
 sidecarCmd.stdout.on('data', line => {
   console.log(`[Sidecar Stdout]: ${line}`);
-  addComment('System', 'Info', `[Sidecar Out] ${line}`, 'system');
+  addComment('System', 'system', 'Info', `[Sidecar Out] ${line}`, 'system');
 });
 
 sidecarCmd.spawn().then((child) => {
   console.log('[Sidecar] Spawned with PID:', child.pid);
-  addComment('System', 'System', `Sidecar started (PID: ${child.pid})`, 'system');
+  addComment('System', 'system', 'System', `Sidecar started (PID: ${child.pid})`, 'system');
 }).catch(e => {
   console.error('[Sidecar] Failed to spawn:', e);
-  addComment('System', 'Error', `Failed to spawn sidecar: ${e}`, 'system');
+  addComment('System', 'system', 'Error', `Failed to spawn sidecar: ${e}`, 'system');
 });
 
 // Helper function to format message with emotes
@@ -165,7 +169,7 @@ async function speak(text: string) {
 
 type CommentSource = 'twitch' | 'youtube' | 'niconico' | 'system';
 
-const addComment = (channel: string, username: string, messageHTML: string, source: CommentSource) => {
+const addComment = (channel: string, userId: string, username: string, messageHTML: string, source: CommentSource) => {
   // Check if user is at the bottom BEFORE adding the new comment
   // Use a small threshold (e.g. 20px) to account for minor discrepancies
   const threshold = 20;
@@ -176,8 +180,54 @@ const addComment = (channel: string, username: string, messageHTML: string, sour
   // channel usually comes as #channelname, remove #
   const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
 
-  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username">${username}:</span> <span class="message">${messageHTML}</span>`;
+  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer; text-decoration:underline;">${username}:</span> <span class="message">${messageHTML}</span>`;
+
+  // Click listener for history
+  const userSpan = div.querySelector('.username') as HTMLSpanElement;
+  if (userSpan && source !== 'system') {
+    userSpan.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      const uid = target.dataset.userid;
+      const uname = target.dataset.username;
+
+      if (uid) {
+        try {
+          // Open new window
+          const safeUid = uid.replace(/[^a-zA-Z0-9-_]/g, '');
+          const label = `history-${safeUid}-${Date.now()}`;
+          console.log(`[History] Creating window: ${label} for ${uname}`);
+
+          const webview = new WebviewWindow(label, {
+            url: `history.html?user_id=${uid}&username=${encodeURIComponent(uname || '')}`,
+            title: `History: ${uname}`,
+            width: 400,
+            height: 600
+          });
+
+          webview.once('tauri://error', (e) => {
+            console.error('[History] Window Error:', e);
+            alert(`Failed to create history window: ${JSON.stringify(e)}`);
+          });
+
+        } catch (e) {
+          console.error('[History] Creation Error:', e);
+          alert(`Error opening history: ${e}`);
+        }
+      }
+    });
+  }
+
   commentsContainer.appendChild(div);
+
+  // Save to DB (async, don't await)
+  if (source !== 'system') {
+    // Strip HTML from message for storage (or store HTML if desired, but usually plain text is safer for search/storage, tho we render HTML)
+    // For now storage as is, or maybe strip tags? Let's strip simple tags for DB readability or keep as is.
+    // The requirement says "Comment Body". Usually better to store plain text.
+    // Save HTML content to preserve emotes (YouTube/Twitch)
+    saveComment(source, channel, userId, username, messageHTML);
+  }
 
   if (isAtBottom) {
     commentsContainer.scrollTop = commentsContainer.scrollHeight;
@@ -232,7 +282,7 @@ const removeChannel = async (channel: string) => {
     }
     activeChannels.delete(channel);
     updateActiveChannelsUI();
-    addComment(channel, 'System', 'Left Niconico channel', 'system');
+    addComment(channel, 'system', 'System', 'Left Niconico channel', 'system');
     return;
   }
 
@@ -242,7 +292,7 @@ const removeChannel = async (channel: string) => {
       await client.part(channel);
       activeChannels.delete(channel);
       updateActiveChannelsUI();
-      addComment(channel, 'System', `Left channel ${channel}.`, 'system');
+      addComment(channel, 'system', 'System', `Left channel ${channel}.`, 'system');
       return;
     } catch (e) {
       // If it fails, maybe it wasn't a Twitch channel, proceed to try API leave
@@ -258,7 +308,7 @@ const removeChannel = async (channel: string) => {
     });
     activeChannels.delete(channel);
     updateActiveChannelsUI();
-    addComment(channel, 'System', `Left YouTube stream ${channel}.`, 'system');
+    addComment(channel, 'system', 'System', `Left YouTube stream ${channel}.`, 'system');
   } catch (e) {
     console.error(e);
   }
@@ -290,6 +340,20 @@ commentsContainer.addEventListener('scroll', () => {
   } else {
     scrollBtn.classList.remove('hidden');
   }
+});
+
+historyBtn.addEventListener('click', () => {
+  const label = `history-global-${Date.now()}`;
+  const webview = new WebviewWindow(label, {
+    url: `history.html`,
+    title: `Global History`,
+    width: 600,
+    height: 800
+  });
+  webview.once('tauri://error', (e) => {
+    console.error('[History] Window Error:', e);
+    alert(`Failed to create history window: ${JSON.stringify(e)}`);
+  });
 });
 
 startBtn.addEventListener('click', async () => {
@@ -349,7 +413,7 @@ startBtn.addEventListener('click', async () => {
       const id = joinData.id;
       activeChannels.set(id, 'youtube');
       updateActiveChannelsUI();
-      addComment(id, 'System', `Joined YouTube stream: ${id}`, 'system');
+      addComment(id, 'system', 'System', `Joined YouTube stream: ${id}`, 'system');
 
       // 2. Start Polling
       const pollInterval = setInterval(async () => {
@@ -370,7 +434,7 @@ startBtn.addEventListener('click', async () => {
               } else {
                 content = msg.message;
               }
-              addComment(id, msg.author, content, 'youtube');
+              addComment(id, msg.userId || 'system', msg.author, content, 'youtube');
             });
           }
         } catch (err) {
@@ -383,7 +447,7 @@ startBtn.addEventListener('click', async () => {
 
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', `Failed to join YouTube: ${e}`, 'system');
+      addComment('System', 'system', 'Error', `Failed to join YouTube: ${e}`, 'system');
       return;
     }
   }
@@ -392,8 +456,8 @@ startBtn.addEventListener('click', async () => {
   if (isNiconico) {
     try {
       const nicoUrl = url.includes('http') ? url : `https://live.nicovideo.jp/watch/${url}`;
-      addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
-      addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
+      addComment('System', 'system', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
+      addComment('System', 'system', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
       activeChannels.set(channelId, 'niconico');
       updateActiveChannelsUI();
 
@@ -421,10 +485,10 @@ startBtn.addEventListener('click', async () => {
           // addComment('System', 'System', msg.message, 'system');
           // Or handle specific system events?
           // Use channelId as channel
-          addComment(channelId, 'System', msg.message, 'system');
+          addComment(channelId, 'system', 'System', msg.message, 'system');
         } else {
           // Chat message
-          addComment(channelId, msg.author, msg.message, 'niconico');
+          addComment(channelId, msg.user_id || 'unknown', msg.author, msg.message, 'niconico');
         }
       });
 
@@ -434,7 +498,7 @@ startBtn.addEventListener('click', async () => {
       return;
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', `Failed to join Niconico: ${e}`, 'system');
+      addComment('System', 'system', 'Error', `Failed to join Niconico: ${e}`, 'system');
       return;
     }
   }
@@ -448,18 +512,18 @@ startBtn.addEventListener('click', async () => {
 
     client.on('message', (channel, tags, message, _self) => {
       const formattedMessage = formatMessage(message, tags.emotes);
-      addComment(channel, tags['display-name'] || 'Anonymous', formattedMessage, 'twitch');
+      addComment(channel, tags['user-id'] || 'anonymous', tags['display-name'] || 'Anonymous', formattedMessage, 'twitch');
     });
 
     client.on('connected', (address, port) => {
-      addComment('System', 'System', `Connected to Twitch Chat server at ${address}:${port}`, 'system');
+      addComment('System', 'system', 'System', `Connected to Twitch Chat server at ${address}:${port}`, 'system');
     });
 
     try {
       await client.connect();
     } catch (e) {
       console.error(e);
-      addComment('System', 'Error', 'Failed to connect to Twitch.', 'system');
+      addComment('System', 'system', 'Error', 'Failed to connect to Twitch.', 'system');
       return;
     }
   }
@@ -468,10 +532,10 @@ startBtn.addEventListener('click', async () => {
     await client.join(channel);
     activeChannels.set(channel.toLowerCase(), 'twitch');
     updateActiveChannelsUI();
-    addComment(channel, 'System', `Joined channel!`, 'system');
+    addComment(channel, 'system', 'System', `Joined channel!`, 'system');
     urlInput.value = ''; // Clear input
   } catch (e) {
     console.error(e);
-    addComment('System', 'Error', `Failed to join ${channel}: ${e}`, 'system');
+    addComment('System', 'system', 'Error', `Failed to join ${channel}: ${e}`, 'system');
   }
 });

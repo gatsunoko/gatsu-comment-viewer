@@ -1,6 +1,6 @@
 mod niconico;
 use std::sync::Mutex;
-use tauri::Manager;
+
 
 pub struct NiconicoState {
     client: Mutex<Option<niconico::NiconicoClient>>,
@@ -16,7 +16,7 @@ async fn connect_niconico(app: tauri::AppHandle, state: tauri::State<'_, Niconic
     }
     
     let new_client = niconico::NiconicoClient::new(app);
-    let url_clone = url.clone();
+
     
     // Start async task inside the client
     new_client.start(url);
@@ -39,6 +39,7 @@ fn disconnect_niconico(state: tauri::State<'_, NiconicoState>) -> Result<(), Str
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_sql::Builder::default().build())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .manage(NiconicoState { client: Mutex::new(None) })
     .invoke_handler(tauri::generate_handler![connect_niconico, disconnect_niconico])

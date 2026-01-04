@@ -30,6 +30,7 @@
     "@bufbuild/protobuf": "^2.6.3",
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-shell": "^2.3.3",
+    "@tauri-apps/plugin-sql": "^2.3.1",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "express": "^5.2.1",
