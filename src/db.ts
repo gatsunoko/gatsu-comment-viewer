@@ -29,6 +29,15 @@ export async function initDb() {
         timestamp TEXT NOT NULL
       )
     `);
+        await db.execute(`
+      CREATE TABLE IF NOT EXISTS nicknames (
+        platform TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        nickname TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        PRIMARY KEY (platform, user_id)
+      )
+    `);
         // Index for faster history lookup
         await db.execute(`CREATE INDEX IF NOT EXISTS idx_user_id ON comments(user_id)`);
         console.log('Database initialized');
@@ -122,8 +131,40 @@ export async function deleteComments(query: string, userId: string | null): Prom
                 );
             }
         }
+
     } catch (e) {
         console.error('Failed to delete comments:', e);
         throw e;
+    }
+}
+
+export async function setNickname(platform: string, userId: string, nickname: string): Promise<void> {
+    if (!db) await initDb();
+    if (!db) return;
+
+    try {
+        const timestamp = new Date().toISOString();
+        await db.execute(
+            'INSERT OR REPLACE INTO nicknames (platform, user_id, nickname, timestamp) VALUES (?, ?, ?, ?)',
+            [platform, userId, nickname, timestamp]
+        );
+    } catch (e) {
+        console.error('Failed to set nickname:', e);
+    }
+}
+
+export async function getNickname(platform: string, userId: string): Promise<string | null> {
+    if (!db) await initDb();
+    if (!db) return null;
+
+    try {
+        const result = await db.select<{ nickname: string }[]>(
+            'SELECT nickname FROM nicknames WHERE platform = ? AND user_id = ?',
+            [platform, userId]
+        );
+        return result.length > 0 ? result[0].nickname : null;
+    } catch (e) {
+        console.error('Failed to get nickname:', e);
+        return null;
     }
 }

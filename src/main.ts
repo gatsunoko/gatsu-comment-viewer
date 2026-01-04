@@ -2,7 +2,7 @@ import './style.css'
 import tmi from 'tmi.js'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { NiconicoClient } from "./niconico"
-import { initDb, saveComment } from './db';
+import { initDb, saveComment, setNickname, getNickname } from './db';
 
 declare global {
   var nicoClient: NiconicoClient | any;
@@ -180,7 +180,7 @@ const addComment = (channel: string, userId: string, username: string, messageHT
   // channel usually comes as #channelname, remove #
   const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
 
-  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer; text-decoration:underline;">${username}:</span> <span class="message">${messageHTML}</span>`;
+  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer;">${username}:</span> <span class="message">${messageHTML}</span>`;
 
   // Click listener for history
   const userSpan = div.querySelector('.username') as HTMLSpanElement;
@@ -489,20 +489,39 @@ startBtn.addEventListener('click', async () => {
       // Initialize new Rust-backed client
       const { NiconicoClient } = await import('./niconico'); // Corrected path
 
-      globalThis.nicoClient = new NiconicoClient((msg: any) => {
+      globalThis.nicoClient = new NiconicoClient(async (msg: any) => {
         // Rust backend returns { author, message } objects directly in 'comment' event
         // But wait, my src/niconico.ts setupListener calls onMessage(event.payload)
         // payload is CommentEvent { author, message } or SystemEvent
 
         if (msg.author === 'System') {
           // System message
-          // addComment('System', 'System', msg.message, 'system');
-          // Or handle specific system events?
-          // Use channelId as channel
           addComment(channelId, 'system', 'System', msg.message, 'system');
         } else {
           // Chat message
-          addComment(channelId, msg.user_id || 'unknown', msg.author, msg.message, 'niconico');
+          let authorName = msg.author;
+          const messageContent = msg.message;
+          const userId = msg.user_id || 'unknown';
+
+          // Kotehan Logic
+          // Check for nickname registration pattern (@Nickname)
+          // Handle both half-width @ and full-width ＠
+          const match = messageContent.match(/^[@＠](.+)/);
+          if (match) {
+            const newNickname = match[1].trim();
+            if (newNickname) {
+              await setNickname('niconico', userId, newNickname);
+              authorName = newNickname;
+            }
+          } else {
+            // Try to retrieve existing nickname
+            const existingNickname = await getNickname('niconico', userId);
+            if (existingNickname) {
+              authorName = existingNickname;
+            }
+          }
+
+          addComment(channelId, userId, authorName, messageContent, 'niconico');
         }
       });
 

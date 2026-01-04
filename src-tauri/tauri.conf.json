@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "comment-viewer",
-  "version": "0.1.0",
+  "productName": "gatsu-comment-viewer",
+  "version": "1.0.0",
   "identifier": "com.commentviewer.app",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "comment-viewer",
+        "title": "gatsu-comment-viewer",
         "width": 800,
         "height": 600,
         "resizable": true,
