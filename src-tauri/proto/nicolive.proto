@@ -1,0 +1,29 @@
+syntax = "proto3";
+package niconico;
+
+// Best-guess structure based on limited info. 
+// The root message in the stream is likely a wrapper.
+
+message ChunkedEntry {
+    oneof entry {
+        Entry present = 1;
+        // There might be 'absent' or other states
+    }
+}
+
+message Entry {
+    // These IDs are GUESSES. We need the real proto.
+    // Usually 1 is ID, 2 is content, etc.
+    // We will decode and see what matches.
+    int64 id = 1;
+    string content = 2; 
+    int64 timestamp = 3;
+    Author author = 4;
+}
+
+message Author {
+    string name = 1;
+    string id = 2;
+}
+
+// If we can get the raw binary, we can inspect it.

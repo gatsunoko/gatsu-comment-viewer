@@ -73,8 +73,40 @@ channelNameToggle.addEventListener('change', () => {
   saveSettings();
 });
 
+import { Command } from '@tauri-apps/plugin-shell';
+
 let client: tmi.Client | null = null;
-const activeChannels = new Set<string>();
+const activeChannels = new Map<string, string>();
+
+// Spawn Sidecar with Logging
+const sidecarCmd = Command.sidecar('binaries/server-driver');
+sidecarCmd.on('close', data => {
+  console.log(`[Sidecar] Finished with code ${data.code} signal ${data.signal}`);
+  // If it crashes, we might want to restart or alert
+  if (data.code !== 0) {
+    addComment('System', 'Error', `Sidecar crashed: code ${data.code}`, 'system');
+  }
+});
+sidecarCmd.on('error', error => {
+  console.error(`[Sidecar] Error: "${error}"`);
+  addComment('System', 'Error', `Sidecar launch error: ${error}`, 'system');
+});
+sidecarCmd.stderr.on('data', line => {
+  console.log(`[Sidecar Stderr]: ${line}`);
+  addComment('System', 'Error', `[Sidecar Err] ${line}`, 'system');
+});
+sidecarCmd.stdout.on('data', line => {
+  console.log(`[Sidecar Stdout]: ${line}`);
+  addComment('System', 'Info', `[Sidecar Out] ${line}`, 'system');
+});
+
+sidecarCmd.spawn().then((child) => {
+  console.log('[Sidecar] Spawned with PID:', child.pid);
+  addComment('System', 'System', `Sidecar started (PID: ${child.pid})`, 'system');
+}).catch(e => {
+  console.error('[Sidecar] Failed to spawn:', e);
+  addComment('System', 'Error', `Failed to spawn sidecar: ${e}`, 'system');
+});
 
 // Helper function to format message with emotes
 const formatMessage = (message: string, emotes: { [key: string]: string[] } | null | undefined): string => {
@@ -165,13 +197,13 @@ const addComment = (channel: string, username: string, messageHTML: string, sour
 
 const updateActiveChannelsUI = () => {
   activeChannelsContainer.innerHTML = '';
-  activeChannels.forEach(channel => {
+  activeChannels.forEach((platform, channel) => {
     const span = document.createElement('span');
     span.className = 'channel-tag';
     span.textContent = channel;
 
     const removeBtn = document.createElement('span');
-    removeBtn.className = 'remove-btn';
+    removeBtn.className = `remove-btn ${platform}`;
     removeBtn.textContent = '×';
     removeBtn.title = 'Leave channel';
     removeBtn.onclick = () => removeChannel(channel);
@@ -219,7 +251,7 @@ const removeChannel = async (channel: string) => {
 
   // Try API Leave (YouTube)
   try {
-    await fetch('http://localhost:3000/api/youtube/leave', {
+    await fetch('http://127.0.0.1:3000/api/youtube/leave', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: channel })
@@ -303,7 +335,7 @@ startBtn.addEventListener('click', async () => {
   if (isYoutube) {
     try {
       // 1. Join via Proxy
-      const joinRes = await fetch('http://localhost:3000/api/youtube/join', {
+      const joinRes = await fetch('http://127.0.0.1:3000/api/youtube/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: channelId }) // Passing ID as URL for simplicity in server.js logic
@@ -315,7 +347,7 @@ startBtn.addEventListener('click', async () => {
       }
 
       const id = joinData.id;
-      activeChannels.add(id);
+      activeChannels.set(id, 'youtube');
       updateActiveChannelsUI();
       addComment(id, 'System', `Joined YouTube stream: ${id}`, 'system');
 
@@ -327,7 +359,7 @@ startBtn.addEventListener('click', async () => {
         }
 
         try {
-          const res = await fetch(`http://localhost:3000/api/youtube/messages?id=${id}`);
+          const res = await fetch(`http://127.0.0.1:3000/api/youtube/messages?id=${id}`);
           const messages = await res.json();
           if (Array.isArray(messages)) {
             messages.forEach(msg => {
@@ -361,7 +393,8 @@ startBtn.addEventListener('click', async () => {
     try {
       const nicoUrl = url.includes('http') ? url : `https://live.nicovideo.jp/watch/${url}`;
       addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
-      activeChannels.add(channelId);
+      addComment('System', 'System', `Joining Niconico via Client: ${channelId}`, 'system');
+      activeChannels.set(channelId, 'niconico');
       updateActiveChannelsUI();
 
       if (globalThis.nicoClient) {
@@ -433,7 +466,7 @@ startBtn.addEventListener('click', async () => {
 
   try {
     await client.join(channel);
-    activeChannels.add(channel.toLowerCase());
+    activeChannels.set(channel.toLowerCase(), 'twitch');
     updateActiveChannelsUI();
     addComment(channel, 'System', `Joined channel!`, 'system');
     urlInput.value = ''; // Clear input

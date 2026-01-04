@@ -9,18 +9,27 @@
     "dev:backend": "node server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:server": "cp -r proto src-tauri/proto && esbuild server.js --bundle --platform=node --target=node18 --outfile=server.cjs && pkg server.cjs --target node18-win-x64 --output src-tauri/binaries/server-driver-x86_64-pc-windows-msvc.exe"
+  },
+  "pkg": {
+    "assets": [
+      "proto/**/*"
+    ]
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6",
     "@types/tmi.js": "^1.8.6",
     "concurrently": "^9.2.1",
+    "esbuild": "^0.27.2",
+    "pkg": "^5.8.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.6.3",
     "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-shell": "^2.3.3",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "express": "^5.2.1",

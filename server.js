@@ -16,14 +16,87 @@ app.use(express.json());
 const activeChats = new Map();
 const messageBuffers = new Map();
 
-// Protobuf Loading
+const ndgrProto = `
+syntax = "proto3";
+package dwango.nicolive.chat.service.edge;
+
+message ChunkedEntry {
+  oneof entry {
+    MessageSegment segment = 1;
+    MessageSegment previous = 3;
+    ReadyForNext next = 4;
+  }
+}
+
+message MessageSegment {
+  string uri = 3;
+}
+
+message ReadyForNext {
+  int64 at = 1;
+}
+
+message ChunkedMessage {
+  message Meta {
+    string id = 1;
+  }
+  Meta meta = 1;
+  oneof payload {
+    NicoliveMessage message = 2;
+    NicoliveState state = 4;
+    Signal.SignalType signal = 5;
+  }
+}
+
+message NicoliveMessage {
+  oneof data {
+    Chat chat = 1;
+    SimpleNotification simple_notification = 7;
+  }
+}
+
+message Chat {
+  string content = 1;
+  int32 vpos = 3;
+  int32 no = 8;
+  string name = 2;
+  int64 raw_user_id = 5;
+  string hashed_user_id = 6;
+}
+
+message SimpleNotification {
+    oneof message {
+        string ichiba = 1;
+        string quote = 2;
+        string emotion = 3;
+        string cruise = 4;
+        string program_extended = 5;
+        string ranking_in = 6;
+        string ranking_updated = 8;
+        string visited = 7;
+        string supporter_registered = 9;
+        string user_level_up = 10;
+    }
+}
+
+message NicoliveState {
+}
+
+message Signal {
+    enum SignalType {
+        Flushed = 0;
+    }
+}
+`;
+
 let ndgrRoot;
 try {
-    protobuf.load('proto/ndgr.proto').then(r => {
-        ndgrRoot = r;
-        console.log("Protobuf loaded");
-    }).catch(console.error);
-} catch (e) { console.error("Proto load sync error", e); }
+    const parsed = protobuf.parse(ndgrProto);
+    ndgrRoot = parsed.root;
+    console.log("Protobuf parsed");
+} catch (e) {
+    console.error("Proto parse error", e);
+}
 
 const ensureBuffer = (id) => {
     if (!messageBuffers.has(id)) messageBuffers.set(id, []);

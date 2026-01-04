@@ -140,6 +140,33 @@ button:hover {
   color: #fff;
 }
 
+.remove-btn.twitch {
+  color: #a970ff;
+}
+
+.remove-btn.twitch:hover {
+  background-color: #6441a5;
+  color: #fff;
+}
+
+.remove-btn.youtube {
+  color: #ff0000;
+}
+
+.remove-btn.youtube:hover {
+  background-color: #ff0000;
+  color: #fff;
+}
+
+.remove-btn.niconico {
+  color: #fff;
+  background-color: #333;
+}
+
+.remove-btn.niconico:hover {
+  background-color: #000;
+}
+
 .channel-name {
   font-weight: bold;
   color: #646cff;

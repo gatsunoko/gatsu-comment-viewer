@@ -7,6 +7,15 @@
   ],
   "permissions": [
     "core:default",
-    "window-state:default"
+    "window-state:default",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/server-driver",
+          "sidecar": true
+        }
+      ]
+    }
   ]
 }
