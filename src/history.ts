@@ -162,7 +162,8 @@ function renderItem(record: CommentRecord) {
     <div class="history-meta">
       <span>
         <span class="history-platform ${record.platform}">${record.platform}</span>
-        <span style="margin-left: 0.5rem; font-family: monospace; color: #aaa;">${record.channel_id}</span>
+        <span style="margin-left: 0.5rem; font-weight: bold; color: #bbb;">${record.username}</span>
+        <span style="margin-left: 0.5rem; font-family: monospace; color: #666;">${record.channel_id}</span>
       </span>
       <span>${date}</span>
     </div>
