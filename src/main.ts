@@ -252,7 +252,7 @@ const addComment = (channel: string, userId: string, username: string, messageHT
           console.log(`[History] Creating window: ${label} for ${uname}`);
 
           const webview = new WebviewWindow(label, {
-            url: `history.html?user_id=${uid}&username=${encodeURIComponent(uname || '')}`,
+            url: `history.html?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname || '')}&platform=${source}`,
             title: `History: ${uname}`,
             width: 400,
             height: 600

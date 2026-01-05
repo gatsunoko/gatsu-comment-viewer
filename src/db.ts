@@ -1,6 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
-
-const DB_PATH = 'comments.db';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface CommentRecord {
     id: number;
@@ -17,7 +16,10 @@ let db: Database | null = null;
 export async function initDb() {
     if (db) return;
     try {
-        db = await Database.load(`sqlite:${DB_PATH}`);
+        const exeDir = await invoke<string>('get_exe_dir');
+        const dbPath = `${exeDir}\\comments.db`;
+        console.log(`Loading DB from: ${dbPath}`);
+        db = await Database.load(`sqlite:${dbPath}`);
         await db.execute(`
       CREATE TABLE IF NOT EXISTS comments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,15 +79,22 @@ export async function saveComment(
     }
 }
 
-export async function getUserHistory(userId: string, limit: number = 100, offset: number = 0): Promise<CommentRecord[]> {
+export async function getUserHistory(userId: string, platform: string | null = null, limit: number = 100, offset: number = 0): Promise<CommentRecord[]> {
     if (!db) await initDb();
     if (!db) return [];
 
     try {
-        return await db.select<CommentRecord[]>(
-            'SELECT * FROM comments WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-            [userId, limit, offset]
-        );
+        if (platform) {
+            return await db.select<CommentRecord[]>(
+                'SELECT * FROM comments WHERE user_id = ? AND platform = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+                [userId, platform, limit, offset]
+            );
+        } else {
+            return await db.select<CommentRecord[]>(
+                'SELECT * FROM comments WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+                [userId, limit, offset]
+            );
+        }
     } catch (e) {
         console.error('Failed to get history:', e);
         return [];

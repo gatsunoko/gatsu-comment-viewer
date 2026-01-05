@@ -50522,14 +50522,85 @@ app.use((0, import_cors.default)());
 app.use(import_express.default.json());
 var activeChats = /* @__PURE__ */ new Map();
 var messageBuffers = /* @__PURE__ */ new Map();
+var ndgrProto = `
+syntax = "proto3";
+package dwango.nicolive.chat.service.edge;
+
+message ChunkedEntry {
+  oneof entry {
+    MessageSegment segment = 1;
+    MessageSegment previous = 3;
+    ReadyForNext next = 4;
+  }
+}
+
+message MessageSegment {
+  string uri = 3;
+}
+
+message ReadyForNext {
+  int64 at = 1;
+}
+
+message ChunkedMessage {
+  message Meta {
+    string id = 1;
+  }
+  Meta meta = 1;
+  oneof payload {
+    NicoliveMessage message = 2;
+    NicoliveState state = 4;
+    Signal.SignalType signal = 5;
+  }
+}
+
+message NicoliveMessage {
+  oneof data {
+    Chat chat = 1;
+    SimpleNotification simple_notification = 7;
+  }
+}
+
+message Chat {
+  string content = 1;
+  int32 vpos = 3;
+  int32 no = 8;
+  string name = 2;
+  int64 raw_user_id = 5;
+  string hashed_user_id = 6;
+}
+
+message SimpleNotification {
+    oneof message {
+        string ichiba = 1;
+        string quote = 2;
+        string emotion = 3;
+        string cruise = 4;
+        string program_extended = 5;
+        string ranking_in = 6;
+        string ranking_updated = 8;
+        string visited = 7;
+        string supporter_registered = 9;
+        string user_level_up = 10;
+    }
+}
+
+message NicoliveState {
+}
+
+message Signal {
+    enum SignalType {
+        Flushed = 0;
+    }
+}
+`;
 var ndgrRoot;
 try {
-  import_protobufjs.default.load("proto/ndgr.proto").then((r) => {
-    ndgrRoot = r;
-    console.log("Protobuf loaded");
-  }).catch(console.error);
+  const parsed = import_protobufjs.default.parse(ndgrProto);
+  ndgrRoot = parsed.root;
+  console.log("Protobuf parsed");
 } catch (e) {
-  console.error("Proto load sync error", e);
+  console.error("Proto parse error", e);
 }
 var ensureBuffer = (id) => {
   if (!messageBuffers.has(id)) messageBuffers.set(id, []);
@@ -50557,6 +50628,9 @@ app.post("/api/youtube/join", async (req, res) => {
       buffer.push({
         id: chatItem.id,
         author: chatItem.author.name,
+        // Fallback strictly to name if channelId is missing. 
+        // Using 'id' property on author might be risky if it maps to stream ID in some versions.
+        userId: chatItem.author.channelId || chatItem.author.name,
         message: chatItem.message,
         timestamp: chatItem.timestamp
       });
@@ -50778,6 +50852,7 @@ async function startMessageStream(messageUri, liveId, buffer) {
                 buffer.push({
                   id: chat.no ? String(chat.no) : String(Date.now()),
                   author: chat.name || userId,
+                  userId,
                   message: chat.content,
                   timestamp: Date.now()
                 });

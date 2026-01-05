@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "gatsu-comment-viewer",
   "version": "1.0.0",
-  "identifier": "com.commentviewer.app",
+  "identifier": "gatsu.commentviewer.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

@@ -13,6 +13,7 @@ const resetColorBtn = document.getElementById('reset-color-btn') as HTMLButtonEl
 const params = new URLSearchParams(window.location.search);
 const userId = params.get('user_id');
 const username = params.get('username');
+const platform = params.get('platform');
 
 let offset = 0;
 const limit = 50;
@@ -22,6 +23,7 @@ let currentQuery = '';
 let mode: 'user' | 'global' = 'global';
 
 async function init() {
+    console.log(`History Mode Init: username=${username}, userId=${userId}, platform=${platform}`);
     if (username) {
         mode = 'user';
         userTitle.textContent = `History: ${username}`;
@@ -64,10 +66,10 @@ async function init() {
 
         // After data load, try to set color picker
         if (userSettingsDiv && userId) {
-            const history = await getUserHistory(userId, 1);
+            const history = await getUserHistory(userId, platform, 1);
             if (history.length > 0) {
-                const platform = history[0].platform;
-                const color = await getUserColor(platform, userId);
+                const currentPlatform = platform || history[0].platform;
+                const color = await getUserColor(currentPlatform, userId);
                 if (color) {
                     userColorPicker.value = color;
                     userTitle.style.color = color;
@@ -79,18 +81,18 @@ async function init() {
 
                 userColorPicker.addEventListener('change', async () => {
                     const newColor = userColorPicker.value;
-                    await setUserColor(platform, userId, newColor);
+                    await setUserColor(currentPlatform, userId, newColor);
                     userTitle.style.color = newColor;
                     // Emit event to main window
-                    emit('color-update', { platform, userId, color: newColor });
+                    emit('color-update', { platform: currentPlatform, userId, color: newColor });
                 });
 
                 resetColorBtn.addEventListener('click', async () => {
                     const defColor = generateColor(username || 'user');
                     userColorPicker.value = defColor;
                     userTitle.style.color = defColor;
-                    await setUserColor(platform, userId, defColor);
-                    emit('color-update', { platform, userId, color: defColor });
+                    await setUserColor(currentPlatform, userId, defColor);
+                    emit('color-update', { platform: currentPlatform, userId, color: defColor });
                 });
             }
         }
@@ -189,8 +191,14 @@ async function loadData(append: boolean) {
         }
 
         let history: CommentRecord[] = [];
-        if (mode === 'user' && userId) {
-            history = await getUserHistory(userId, limit, offset);
+        if (mode === 'user') {
+            if (userId) {
+                history = await getUserHistory(userId, platform, limit, offset);
+            } else {
+                console.error("User mode but no userId found.");
+                historyContainer.innerHTML = `<div style="color: red;">Error: User ID missing.</div>`;
+                return;
+            }
         } else {
             history = await searchComments(currentQuery, limit, offset);
         }

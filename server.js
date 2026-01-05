@@ -126,10 +126,15 @@ app.post('/api/youtube/join', async (req, res) => {
         const buffer = ensureBuffer(id);
 
         liveChat.on('chat', (chatItem) => {
+            // Debug author object to understand structure
+            // console.log('Chat Item Author:', chatItem.author);
+
             buffer.push({
                 id: chatItem.id,
                 author: chatItem.author.name,
-                userId: chatItem.author.channelId || chatItem.author.id || chatItem.author.name,
+                // Fallback strictly to name if channelId is missing. 
+                // Using 'id' property on author might be risky if it maps to stream ID in some versions.
+                userId: chatItem.author.channelId || chatItem.author.name,
                 message: chatItem.message,
                 timestamp: chatItem.timestamp
             });
