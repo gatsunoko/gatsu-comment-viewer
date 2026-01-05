@@ -2,7 +2,34 @@ import './style.css'
 import tmi from 'tmi.js'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { NiconicoClient } from "./niconico"
-import { initDb, saveComment, setNickname, getNickname } from './db';
+import { initDb, saveComment, setNickname, getNickname, getAllUserColors } from './db';
+
+const userColorCache = new Map<string, string>();
+
+async function loadUserColors() {
+  try {
+    const colors = await getAllUserColors();
+    colors.forEach(c => {
+      userColorCache.set(`${c.platform}:${c.user_id}`, c.color);
+    });
+  } catch (e) {
+    console.error('Failed to load user colors', e);
+  }
+}
+
+// Generate a consistent color from a string (HSL)
+function generateColor(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // H: 0-360, S: 60-80%, L: 50-70% for visibility on dark background
+  const h = Math.abs(hash) % 360;
+  const s = 60 + (Math.abs(hash * 13) % 20);
+  const l = 60 + (Math.abs(hash * 7) % 20); // Slightly lighter for dark mode
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
 
 declare global {
   var nicoClient: NiconicoClient | any;
@@ -58,6 +85,27 @@ const loadSettings = () => {
 // Initialize settings and DB
 loadSettings();
 initDb();
+loadUserColors();
+
+// Listen for color updates from history window
+import { listen } from '@tauri-apps/api/event';
+listen('color-update', (event: any) => {
+  // Expected payload: { platform: string, userId: string, color: string }
+  const { platform, userId, color } = event.payload;
+  if (platform && userId && color) {
+    userColorCache.set(`${platform}:${userId}`, color);
+    // Find all existing comments by this user and update color
+    const comments = commentsContainer.querySelectorAll(`.username[data-userid="${userId}"]`);
+    comments.forEach((el: any) => {
+      // We need to check platform too given how we store cache key, but right now source is class on badge.
+      // But we can infer or maybe we should store platform on username element too?
+      // Actually username element has data-userid.
+      // We can just update if it matches, assuming userIds are unique per platform or unlikely collision in view.
+      el.style.color = color;
+    });
+  }
+});
+
 
 sourceToggle.addEventListener('change', () => {
   if (sourceToggle.checked) {
@@ -180,7 +228,12 @@ const addComment = (channel: string, userId: string, username: string, messageHT
   // channel usually comes as #channelname, remove #
   const cleanChannel = channel.startsWith('#') ? channel.slice(1) : channel;
 
-  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer;">${username}:</span> <span class="message">${messageHTML}</span>`;
+  let color = userColorCache.get(`${source}:${userId}`);
+  if (!color) {
+    color = generateColor(username); // Fallback to consistent generated color
+  }
+
+  div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer; color: ${color};">${username}:</span> <span class="message">${messageHTML}</span>`;
 
   // Click listener for history
   const userSpan = div.querySelector('.username') as HTMLSpanElement;

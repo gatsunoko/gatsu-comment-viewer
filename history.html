@@ -80,6 +80,13 @@
 <body>
     <div id="header">
         <h2 id="user-title">History</h2>
+        <div id="user-settings"
+            style="display: none; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; background: #2a2a2a; padding: 0.5rem; border-radius: 4px;">
+            <label for="user-color-picker">User Color:</label>
+            <input type="color" id="user-color-picker" value="#a855f7">
+            <button id="reset-color-btn"
+                style="padding: 0.2rem 0.5rem; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Reset</button>
+        </div>
         <div id="search-box" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
             <input type="text" id="search-input" placeholder="Search comments, user, or channel ID..."
                 style="flex: 1; padding: 0.5rem; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">

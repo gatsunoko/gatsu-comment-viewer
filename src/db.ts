@@ -38,6 +38,14 @@ export async function initDb() {
         PRIMARY KEY (platform, user_id)
       )
     `);
+        await db.execute(`
+      CREATE TABLE IF NOT EXISTS user_colors (
+        platform TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        color TEXT NOT NULL,
+        PRIMARY KEY (platform, user_id)
+      )
+    `);
         // Index for faster history lookup
         await db.execute(`CREATE INDEX IF NOT EXISTS idx_user_id ON comments(user_id)`);
         console.log('Database initialized');
@@ -166,5 +174,49 @@ export async function getNickname(platform: string, userId: string): Promise<str
     } catch (e) {
         console.error('Failed to get nickname:', e);
         return null;
+    }
+}
+
+export async function setUserColor(platform: string, userId: string, color: string): Promise<void> {
+    if (!db) await initDb();
+    if (!db) return;
+
+    try {
+        await db.execute(
+            'INSERT OR REPLACE INTO user_colors (platform, user_id, color) VALUES (?, ?, ?)',
+            [platform, userId, color]
+        );
+    } catch (e) {
+        console.error('Failed to set user color:', e);
+    }
+}
+
+export async function getUserColor(platform: string, userId: string): Promise<string | null> {
+    if (!db) await initDb();
+    if (!db) return null;
+
+    try {
+        const result = await db.select<{ color: string }[]>(
+            'SELECT color FROM user_colors WHERE platform = ? AND user_id = ?',
+            [platform, userId]
+        );
+        return result.length > 0 ? result[0].color : null;
+    } catch (e) {
+        console.error('Failed to get user color:', e);
+        return null;
+    }
+}
+
+export async function getAllUserColors(): Promise<{ platform: string, user_id: string, color: string }[]> {
+    if (!db) await initDb();
+    if (!db) return [];
+
+    try {
+        return await db.select<{ platform: string, user_id: string, color: string }[]>(
+            'SELECT platform, user_id, color FROM user_colors'
+        );
+    } catch (e) {
+        console.error('Failed to get all user colors:', e);
+        return [];
     }
 }

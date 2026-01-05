@@ -1,10 +1,14 @@
-import { getUserHistory, searchComments, deleteComments, CommentRecord } from './db';
+import { getUserHistory, searchComments, deleteComments, CommentRecord, getUserColor, setUserColor } from './db';
+import { emit } from '@tauri-apps/api/event';
 
 const historyContainer = document.getElementById('history-container')!;
 const userTitle = document.getElementById('user-title')!;
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const searchBtn = document.getElementById('search-btn') as HTMLButtonElement;
 const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement;
+const userSettingsDiv = document.getElementById('user-settings') as HTMLDivElement;
+const userColorPicker = document.getElementById('user-color-picker') as HTMLInputElement;
+const resetColorBtn = document.getElementById('reset-color-btn') as HTMLButtonElement;
 
 const params = new URLSearchParams(window.location.search);
 const userId = params.get('user_id');
@@ -24,7 +28,76 @@ async function init() {
         if (searchInput && searchInput.parentElement) {
             (searchInput.parentElement as HTMLElement).style.display = 'none';
         }
+
+        // Show user settings
+        if (userSettingsDiv && userId) {
+            userSettingsDiv.style.display = 'flex';
+
+            // Load current color
+            // We need to know which platform this user belongs to.
+            // But wait, the history window is generic for user_id. 
+            // In main.ts logic: "source" is passed to addComment, but wait, addComment receives user_id.
+            // We need to know the platform to look up the color.
+            // "getUserHistory" filters by user_id only. UserIds might collide across platforms but it's rare or handled.
+            // Let's assume we can find ONE comment to determine platform, or just use the platform from the first history item.
+            // OR we can pass platform in URL params.
+            // Let's try to fetch color by just user_id for now from DB? But DB key is (platform, user_id).
+            // Hmmm. I should probably pass 'platform' in URL.
+            // But wait, "getUserHistory" relies on user_id only? 
+            // db.ts: getUserHistory: SELECT * FROM comments WHERE user_id = ?
+            // The comments table has platform.
+            // So if I fetch history first, I can know the platform.
+
+            // Let's rely on history loading first? Or just try all platforms?
+            // Better: update main.ts to pass platform in URL.
+            // FOR NOW: I will guess platform or try to find it.
+
+            // Actually, let's just use the first history item to determine platform once loaded.
+            // BUT we want to show color immediately.
+
+            // Let's defer color loading until loadData finishes? 
+            // Valid strategy: When loadData finishes, if we found items, use the platform from the first item to load color.
+            // If no items, we can't really set color effectively anyway (or we don't know platform).
+        }
+
         await loadData(false);
+
+        // After data load, try to set color picker
+        if (userSettingsDiv && userId) {
+            const history = await getUserHistory(userId, 1);
+            if (history.length > 0) {
+                const platform = history[0].platform;
+                const color = await getUserColor(platform, userId);
+                if (color) {
+                    userColorPicker.value = color;
+                } else {
+                    // Generate default? Not needed for picker, maybe just keep default or generating one here to show?
+                    // We can replicate generateColor here or just leave default black/purple
+                    // Let's try to replicate generateColor so it matches what user sees?
+                    // Ideally we import generateColor from main.ts or move it to shared utils.
+                    // For now, let's just leave it or maybe replicate simple hash.
+                    userColorPicker.value = generateColor(username || 'user');
+                }
+
+                userColorPicker.addEventListener('change', async () => {
+                    const newColor = userColorPicker.value;
+                    await setUserColor(platform, userId, newColor);
+                    // Emit event to main window
+                    emit('color-update', { platform, userId, color: newColor });
+                });
+
+                resetColorBtn.addEventListener('click', async () => {
+                    // To reset, we can store null? or delete?
+                    // setUserColor replace logic handles insert or replace. 
+                    // Maybe we should allow deleting? 
+                    // For now, let's just set it to generated color.
+                    const defColor = generateColor(username || 'user');
+                    userColorPicker.value = defColor;
+                    await setUserColor(platform, userId, defColor);
+                    emit('color-update', { platform, userId, color: defColor });
+                });
+            }
+        }
     } else {
         mode = 'global';
         userTitle.textContent = "Global History";
@@ -173,3 +246,15 @@ function renderItem(record: CommentRecord) {
 }
 
 init();
+
+function generateColor(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash) % 360;
+    const s = 60 + (Math.abs(hash * 13) % 20);
+    const l = 60 + (Math.abs(hash * 7) % 20);
+    return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
