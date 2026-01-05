@@ -70,29 +70,25 @@ async function init() {
                 const color = await getUserColor(platform, userId);
                 if (color) {
                     userColorPicker.value = color;
+                    userTitle.style.color = color;
                 } else {
-                    // Generate default? Not needed for picker, maybe just keep default or generating one here to show?
-                    // We can replicate generateColor here or just leave default black/purple
-                    // Let's try to replicate generateColor so it matches what user sees?
-                    // Ideally we import generateColor from main.ts or move it to shared utils.
-                    // For now, let's just leave it or maybe replicate simple hash.
-                    userColorPicker.value = generateColor(username || 'user');
+                    const defColor = generateColor(username || 'user');
+                    userColorPicker.value = defColor;
+                    userTitle.style.color = defColor;
                 }
 
                 userColorPicker.addEventListener('change', async () => {
                     const newColor = userColorPicker.value;
                     await setUserColor(platform, userId, newColor);
+                    userTitle.style.color = newColor;
                     // Emit event to main window
                     emit('color-update', { platform, userId, color: newColor });
                 });
 
                 resetColorBtn.addEventListener('click', async () => {
-                    // To reset, we can store null? or delete?
-                    // setUserColor replace logic handles insert or replace. 
-                    // Maybe we should allow deleting? 
-                    // For now, let's just set it to generated color.
                     const defColor = generateColor(username || 'user');
                     userColorPicker.value = defColor;
+                    userTitle.style.color = defColor;
                     await setUserColor(platform, userId, defColor);
                     emit('color-update', { platform, userId, color: defColor });
                 });
