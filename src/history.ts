@@ -208,6 +208,27 @@ async function loadData(append: boolean) {
         const loadingIndicatorAppend = document.getElementById('loading-indicator-append');
         if (loadingIndicatorAppend) loadingIndicatorAppend.remove();
 
+        // Update Search Status
+        const searchStatus = document.getElementById('search-status');
+        if (searchStatus) {
+            if (currentQuery && currentQuery.trim().length > 0) {
+                searchStatus.style.display = 'block';
+                searchStatus.innerHTML = `Searching for: <span style="color: #fff; font-weight: bold;">"${currentQuery}"</span> <span id="clear-search" style="cursor: pointer; color: #646cff; margin-left: 10px;">[Clear]</span>`;
+
+                // Re-bind clear button
+                const clearBtn = document.getElementById('clear-search');
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => {
+                        if (searchInput) searchInput.value = '';
+                        currentQuery = '';
+                        loadData(false);
+                    });
+                }
+            } else {
+                searchStatus.style.display = 'none';
+            }
+        }
+
         if (history.length < limit) {
             hasMore = false;
         }

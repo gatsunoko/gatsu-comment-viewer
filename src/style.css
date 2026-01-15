@@ -319,3 +319,9 @@ button:hover {
 #scroll-to-bottom-btn:hover {
   background-color: rgba(83, 91, 242, 1);
 }
+
+/* First Comment Highlight */
+.comment.first-comment {
+  background-color: #0d2850;
+  border-left: 3px solid #4a90e2;
+}

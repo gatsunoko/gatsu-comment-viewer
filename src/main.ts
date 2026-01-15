@@ -125,10 +125,15 @@ channelNameToggle.addEventListener('change', () => {
   saveSettings();
 });
 
+speechToggle.addEventListener('change', () => {
+  saveSettings();
+});
+
 import { Command } from '@tauri-apps/plugin-shell';
 
 let client: tmi.Client | null = null;
 const activeChannels = new Map<string, string>();
+const sessionUserIds = new Set<string>();
 
 // Spawn Sidecar with Logging
 const sidecarCmd = Command.sidecar('binaries/server-driver');
@@ -233,7 +238,21 @@ const addComment = (channel: string, userId: string, username: string, messageHT
     color = generateColor(username); // Fallback to consistent generated color
   }
 
+  // Initial Comment Logic
+  let isFirstComment = false;
+  if (source !== 'system') {
+    const sessionKey = `${source}:${userId}`;
+    if (!sessionUserIds.has(sessionKey)) {
+      isFirstComment = true;
+      sessionUserIds.add(sessionKey);
+    }
+  }
+
+  const firstCommentClass = isFirstComment ? 'first-comment' : '';
   div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer; color: ${color};">${username}:</span> <span class="message">${messageHTML}</span>`;
+  if (isFirstComment) {
+    div.classList.add('first-comment');
+  }
 
   // Click listener for history
   const userSpan = div.querySelector('.username') as HTMLSpanElement;
@@ -295,7 +314,9 @@ const addComment = (channel: string, userId: string, username: string, messageHT
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = messageHTML;
   const textContent = tempDiv.textContent || tempDiv.innerText || '';
-  speak(textContent);
+  if (source !== 'system') {
+    speak(textContent);
+  }
 }
 
 const updateActiveChannelsUI = () => {
