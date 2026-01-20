@@ -1,5 +1,7 @@
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getMutedUsers, setUserSettings, MutedUserResult } from './db';
 import { emit } from '@tauri-apps/api/event';
+// ... (imports)
 
 const listContainer = document.getElementById('list-container')!;
 
@@ -32,7 +34,7 @@ function renderUsers(users: MutedUserResult[]) {
         row.innerHTML = `
             <span class="platform-badge ${user.platform}">${user.platform}</span>
             <div class="user-info">
-                <div class="username" title="${displayName}">${displayName}</div>
+                <div class="username" title="Click to view history" style="cursor: pointer; color: #a855f7; text-decoration: underline;">${displayName}</div>
                 <div class="userid" title="${user.user_id}">${user.user_id}</div>
             </div>
             <div class="actions">
@@ -40,6 +42,30 @@ function renderUsers(users: MutedUserResult[]) {
                 ${user.tts_muted ? `<button class="btn-unmute-tts">Unmute TTS</button>` : ''}
             </div>
         `;
+
+        const usernameDiv = row.querySelector('.username');
+        if (usernameDiv) {
+            usernameDiv.addEventListener('click', async () => {
+                const uid = user.user_id;
+                const uname = displayName;
+                const platform = user.platform;
+
+                const safeUid = uid.replace(/[^a-zA-Z0-9-_]/g, '');
+                const label = `history-${safeUid}-${Date.now()}`;
+
+                const webview = new WebviewWindow(label, {
+                    url: `history.html?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname)}&platform=${platform}`,
+                    title: `History: ${uname}`,
+                    width: 500,
+                    height: 600
+                });
+
+                webview.once('tauri://error', (e) => {
+                    console.error('[History] Window Error:', e);
+                    alert(`Failed to create history window: ${JSON.stringify(e)}`);
+                });
+            });
+        }
 
         const unmuteBtn = row.querySelector('.btn-unmute');
         if (unmuteBtn) {
