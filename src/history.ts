@@ -1,5 +1,6 @@
 import { getUserHistory, searchComments, deleteComments, CommentRecord, getUserColor, setUserColor } from './db';
 import { emit } from '@tauri-apps/api/event';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 const historyContainer = document.getElementById('history-container')!;
 const userTitle = document.getElementById('user-title')!;
@@ -260,13 +261,46 @@ function renderItem(record: CommentRecord) {
     <div class="history-meta">
       <span>
         <span class="history-platform ${record.platform}">${record.platform}</span>
-        <span style="margin-left: 0.5rem; font-weight: bold; color: #bbb;">${record.username}</span>
+        <span class="history-username" style="margin-left: 0.5rem; font-weight: bold; color: #bbb; cursor: pointer;" title="Click to view history">${record.username}</span>
         <span style="margin-left: 0.5rem; font-family: monospace; color: #666;">${record.channel_id}</span>
       </span>
       <span>${date}</span>
     </div>
     <div class="history-message">${record.message}</div>
   `;
+
+    const usernameSpan = div.querySelector('.history-username');
+    if (usernameSpan) {
+        usernameSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const uid = record.user_id;
+            const uname = record.username;
+            const source = record.platform;
+
+            if (uid) {
+                try {
+                    const safeUid = uid.replace(/[^a-zA-Z0-9-_]/g, '');
+                    const label = `history-${safeUid}-${Date.now()}`;
+
+                    const webview = new WebviewWindow(label, {
+                        url: `history.html?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname || '')}&platform=${source}`,
+                        title: `History: ${uname}`,
+                        width: 400,
+                        height: 600
+                    });
+
+                    webview.once('tauri://error', (e) => {
+                        console.error('[History] Window Error:', e);
+                        alert(`Failed to create history window: ${JSON.stringify(e)}`);
+                    });
+                } catch (e) {
+                    console.error('[History] Creation Error:', e);
+                    alert(`Error opening history: ${e}`);
+                }
+            }
+        });
+    }
+
     historyContainer.appendChild(div);
 }
 
