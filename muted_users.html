@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muted Users</title>
+    <link rel="stylesheet" href="./src/style.css">
+    <style>
+        body {
+            padding: 1rem;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+        }
+
+        #list-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .user-row {
+            display: flex;
+            align-items: center;
+            background: #2a2a2a;
+            padding: 8px;
+            border-radius: 4px;
+            gap: 10px;
+        }
+
+        .platform-badge {
+            font-size: 0.7rem;
+            padding: 2px 4px;
+            border-radius: 2px;
+            text-transform: uppercase;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .twitch {
+            background: #6441a5;
+            color: white;
+        }
+
+        .youtube {
+            background: #ff0000;
+            color: white;
+        }
+
+        .niconico {
+            background: #000000;
+            color: white;
+            border: 1px solid #333;
+        }
+
+        .user-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .username {
+            font-weight: bold;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .userid {
+            font-size: 0.75rem;
+            color: #888;
+            font-family: monospace;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        button {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .btn-unmute {
+            background: #e67e22;
+        }
+
+        .btn-unmute-tts {
+            background: #3498db;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Muted Users</h2>
+    <div id="list-container">
+        <div style="text-align: center; color: #666; margin-top: 20px;">Loading...</div>
+    </div>
+    <script type="module" src="/src/muted_users.ts"></script>
+</body>
+
+</html>

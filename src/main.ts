@@ -2,9 +2,10 @@ import './style.css'
 import tmi from 'tmi.js'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { NiconicoClient } from "./niconico"
-import { initDb, saveComment, setNickname, getNickname, getAllUserColors } from './db';
+import { initDb, saveComment, setNickname, getNickname, getAllUserColors, getAllUserSettings, UserSettings } from './db';
 
 const userColorCache = new Map<string, string>();
+const userSettingsCache = new Map<string, UserSettings>();
 
 async function loadUserColors() {
   try {
@@ -14,6 +15,17 @@ async function loadUserColors() {
     });
   } catch (e) {
     console.error('Failed to load user colors', e);
+  }
+}
+
+async function loadUserSettings() {
+  try {
+    const settings = await getAllUserSettings();
+    settings.forEach(s => {
+      userSettingsCache.set(`${s.platform}:${s.user_id}`, s);
+    });
+  } catch (e) {
+    console.error('Failed to load user settings', e);
   }
 }
 
@@ -37,55 +49,49 @@ declare global {
 
 const startBtn = document.querySelector<HTMLButtonElement>('#start-btn')!;
 const historyBtn = document.querySelector<HTMLButtonElement>('#history-btn')!;
+const optionsBtn = document.querySelector<HTMLButtonElement>('#options-btn')!;
 const urlInput = document.querySelector<HTMLInputElement>('#twitch-url')!;
 const commentsContainer = document.querySelector<HTMLDivElement>('#comments-container')!;
 const activeChannelsContainer = document.querySelector<HTMLDivElement>('#active-channels')!;
 const scrollBtn = document.querySelector<HTMLButtonElement>('#scroll-to-bottom-btn')!;
-const sourceToggle = document.querySelector<HTMLInputElement>('#source-toggle')!;
-const channelNameToggle = document.querySelector<HTMLInputElement>('#channel-name-toggle')!;
-const speechToggle = document.querySelector<HTMLInputElement>('#speech-toggle')!;
+
+// App State (controlled by Options Window)
+let isSpeechEnabled = true;
+let showSource = false;
+let showChannelName = true;
 
 // Settings Persistence
-const saveSettings = () => {
-  const settings = {
-    speech: speechToggle.checked,
-    source: sourceToggle.checked,
-    channelName: channelNameToggle.checked
-  };
-  localStorage.setItem('commentViewerSettings', JSON.stringify(settings));
+const loadSettings = () => {
+  const isSpeechEnabledStored = localStorage.getItem('isSpeechEnabled');
+  const showSourceStored = localStorage.getItem('showSource');
+  const showChannelNameStored = localStorage.getItem('showChannelName');
+
+  if (isSpeechEnabledStored !== null) isSpeechEnabled = isSpeechEnabledStored !== 'false';
+  if (showSourceStored !== null) showSource = showSourceStored === 'true';
+  if (showChannelNameStored !== null) showChannelName = showChannelNameStored !== 'false';
+
+  updateUIState();
 };
 
-const loadSettings = () => {
-  const settingsJson = localStorage.getItem('commentViewerSettings');
-  if (settingsJson) {
-    try {
-      const settings = JSON.parse(settingsJson);
-      if (typeof settings.speech === 'boolean') speechToggle.checked = settings.speech;
-      if (typeof settings.source === 'boolean') sourceToggle.checked = settings.source;
-      if (typeof settings.channelName === 'boolean') channelNameToggle.checked = settings.channelName;
-    } catch (e) {
-      console.error('Failed to load settings', e);
-    }
-  }
-
-  // Apply visual states based on loaded (or default) values
-  if (sourceToggle.checked) {
+const updateUIState = () => {
+  if (showSource) {
     commentsContainer.classList.add('show-source');
   } else {
     commentsContainer.classList.remove('show-source');
   }
 
-  if (channelNameToggle.checked) {
+  if (showChannelName) {
     commentsContainer.classList.add('show-channel-name');
   } else {
     commentsContainer.classList.remove('show-channel-name');
   }
-};
+}
 
 // Initialize settings and DB
 loadSettings();
 initDb();
 loadUserColors();
+loadUserSettings();
 
 // Listen for color updates from history window
 import { listen, emit } from '@tauri-apps/api/event';
@@ -106,27 +112,49 @@ listen('color-update', (event: any) => {
   }
 });
 
-
-sourceToggle.addEventListener('change', () => {
-  if (sourceToggle.checked) {
-    commentsContainer.classList.add('show-source');
-  } else {
-    commentsContainer.classList.remove('show-source');
+listen('user-settings-update', (event: any) => {
+  const settings = event.payload as UserSettings;
+  if (settings.platform && settings.user_id) {
+    userSettingsCache.set(`${settings.platform}:${settings.user_id}`, settings);
+    // Dynamic updates?
+    // Mute: If we mute a user, maybe we should hide their existing comments?
+    // For now, only applies to new comments as per standard "ignore" behavior, 
+    // but concealing existing ones would be nice.
+    if (settings.is_muted) {
+      // Find existing and remove or hide
+      const comments = commentsContainer.querySelectorAll(`.username[data-userid="${settings.user_id}"]`);
+      comments.forEach((el: any) => {
+        const commentDiv = el.closest('.comment');
+        if (commentDiv) commentDiv.style.display = 'none';
+      });
+    } else {
+      // Unmute -> Show
+      const comments = commentsContainer.querySelectorAll(`.username[data-userid="${settings.user_id}"]`);
+      comments.forEach((el: any) => {
+        const commentDiv = el.closest('.comment');
+        if (commentDiv) commentDiv.style.display = '';
+      });
+    }
   }
-  saveSettings();
 });
 
-channelNameToggle.addEventListener('change', () => {
-  if (channelNameToggle.checked) {
-    commentsContainer.classList.add('show-channel-name');
-  } else {
-    commentsContainer.classList.remove('show-channel-name');
-  }
-  saveSettings();
+
+// Listen for settings updates from Options Window
+listen('app-settings-update', (event: any) => {
+  console.log('[Main] Received settings update:', event.payload);
+  const { setting, value } = event.payload;
+  if (setting === 'isSpeechEnabled') isSpeechEnabled = value;
+  if (setting === 'showSource') showSource = value;
+  if (setting === 'showChannelName') showChannelName = value;
+  updateUIState();
 });
 
-speechToggle.addEventListener('change', () => {
-  saveSettings();
+// Fallback: Listen for storage events (cross-window sync)
+window.addEventListener('storage', (event) => {
+  if (event.key === 'isSpeechEnabled' || event.key === 'showSource' || event.key === 'showChannelName') {
+    console.log('[Main] Storage event:', event.key, event.newValue);
+    loadSettings(); // Reloads all settings from localStorage
+  }
 });
 
 import { Command } from '@tauri-apps/plugin-shell';
@@ -134,6 +162,7 @@ import { Command } from '@tauri-apps/plugin-shell';
 let client: tmi.Client | null = null;
 const activeChannels = new Map<string, string>();
 const sessionUserIds = new Set<string>();
+
 
 // Spawn Sidecar with Logging
 const sidecarCmd = Command.sidecar('binaries/server-driver');
@@ -204,7 +233,8 @@ const formatMessage = (message: string, emotes: { [key: string]: string[] } | nu
 };
 
 async function speak(text: string) {
-  if (!speechToggle.checked) return;
+  console.log(`[Main] Speak called. Enabled: ${isSpeechEnabled}, Text: ${text}`);
+  if (!isSpeechEnabled) return;
   try {
     // Sanitize: Remove URLs
     const safeText = text.replace(/https?:\/\/[^\s]+/g, 'URL');
@@ -238,6 +268,18 @@ const addComment = (channel: string, userId: string, username: string, messageHT
     color = generateColor(username); // Fallback to consistent generated color
   }
 
+  // Check User Settings
+  const settings = userSettingsCache.get(`${source}:${userId}`);
+  const isMuted = settings?.is_muted === 1;
+  const isTtsMuted = settings?.tts_muted === 1;
+  const ttsVolume = settings?.volume ?? -1;
+
+  if (isMuted) {
+    // Do not add to UI if muted (or add hidden?)
+    // We'll add it hidden so we can unhide later if settings change
+    // logic below...
+  }
+
   // Initial Comment Logic
   let isFirstComment = false;
   if (source !== 'system') {
@@ -250,6 +292,10 @@ const addComment = (channel: string, userId: string, username: string, messageHT
 
   const firstCommentClass = isFirstComment ? 'first-comment' : '';
   div.innerHTML = `<span class="source-badge ${source}">${source}</span><span class="channel-name">[${cleanChannel}]</span><span class="username" data-userid="${userId}" data-username="${username}" title="Click to view history" style="cursor:pointer; color: ${color};">${username}:</span> <span class="message">${messageHTML}</span>`;
+
+  if (isMuted) {
+    div.style.display = 'none';
+  }
   if (isFirstComment) {
     div.classList.add('first-comment');
   }
@@ -273,7 +319,7 @@ const addComment = (channel: string, userId: string, username: string, messageHT
           const webview = new WebviewWindow(label, {
             url: `history.html?user_id=${encodeURIComponent(uid)}&username=${encodeURIComponent(uname || '')}&platform=${source}`,
             title: `History: ${uname}`,
-            width: 400,
+            width: 500,
             height: 600
           });
 
@@ -315,7 +361,16 @@ const addComment = (channel: string, userId: string, username: string, messageHT
   tempDiv.innerHTML = messageHTML;
   const textContent = tempDiv.textContent || tempDiv.innerText || '';
   if (source !== 'system') {
-    speak(textContent);
+    if (!isMuted && !isTtsMuted) { // Only speak if not user-muted AND not TTS-muted
+      if (ttsVolume !== -1 && ttsVolume >= 0) {
+        // Prepend volume command according to Bouyomi-chan format
+        // Volume: 0-100 (default). User might set > 100?
+        // Command: 音量(100)
+        speak(`音量(${ttsVolume})${textContent}`);
+      } else {
+        speak(textContent);
+      }
+    }
 
     // Emit event for history windows
     const timestamp = new Date().toISOString();
@@ -401,16 +456,20 @@ const removeChannel = async (channel: string) => {
 
   // Try API Leave (YouTube)
   try {
-    await fetch('http://127.0.0.1:3000/api/youtube/leave', {
+    const res = await fetch('http://127.0.0.1:3000/api/youtube/leave', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: channel })
     });
-    activeChannels.delete(channel);
-    updateActiveChannelsUI();
+    if (!res.ok) {
+      console.warn('Leave API failed:', res.statusText);
+    }
     addComment(channel, 'system', 'System', `Left YouTube stream ${channel}.`, 'system');
   } catch (e) {
-    console.error(e);
+    console.error('Leave API Error (ignoring since we are removing UI):', e);
+  } finally {
+    activeChannels.delete(channel);
+    updateActiveChannelsUI();
   }
 }
 
@@ -667,3 +726,37 @@ startBtn.addEventListener('click', async () => {
     addComment('System', 'system', 'Error', `Failed to join ${channel}: ${e}`, 'system');
   }
 });
+
+if (historyBtn) {
+  historyBtn.addEventListener('click', () => {
+    const label = 'history-main';
+    const webview = new WebviewWindow(label, {
+      url: 'history.html',
+      title: 'Global History',
+      width: 500,
+      height: 600
+    });
+    webview.once('tauri://error', (e) => { console.error('History Window Error:', e); });
+  });
+}
+
+if (optionsBtn) {
+  optionsBtn.addEventListener('click', async () => {
+    const label = 'options';
+
+    // Use focus if exists
+    const existing = await WebviewWindow.getByLabel(label);
+    if (existing) {
+      await existing.setFocus();
+      return;
+    }
+
+    const webview = new WebviewWindow(label, {
+      url: 'options.html',
+      title: 'Options',
+      width: 400,
+      height: 300
+    });
+    webview.once('tauri://error', (e) => { console.error('Options Window Error:', e); });
+  });
+}

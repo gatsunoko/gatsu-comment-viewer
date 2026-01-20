@@ -126,25 +126,67 @@ app.post('/api/youtube/join', async (req, res) => {
         const buffer = ensureBuffer(id);
 
         liveChat.on('chat', (chatItem) => {
-            // Debug author object to understand structure
-            // console.log('Chat Item Author:', chatItem.author);
-
             buffer.push({
                 id: chatItem.id,
                 author: chatItem.author.name,
                 // Fallback strictly to name if channelId is missing. 
-                // Using 'id' property on author might be risky if it maps to stream ID in some versions.
                 userId: chatItem.author.channelId || chatItem.author.name,
                 message: chatItem.message,
                 timestamp: chatItem.timestamp
             });
             if (buffer.length > 500) buffer.shift();
         });
+
+        liveChat.on('error', (err) => {
+            console.error(`[YT Error] ${id}:`, err);
+            buffer.push({
+                id: 'err-' + Date.now(),
+                author: 'System',
+                userId: 'system',
+                message: `YouTube Connection Error: ${err.message || err}`,
+                timestamp: Date.now()
+            });
+        });
+
+        liveChat.on('end', (reason) => {
+            console.log(`[YT End] ${id}: ${reason}`);
+            buffer.push({
+                id: 'end-' + Date.now(),
+                author: 'System',
+                userId: 'system',
+                message: `YouTube Stream Ended: ${reason || 'Unknown'}`,
+                timestamp: Date.now()
+            });
+            // Cleanup? maybe keep active to show message, but stop will be called by client eventually.
+        });
+
         const ok = await liveChat.start();
         if (!ok) return res.status(500).json({ error: 'YT Connect Failed' });
         activeChats.set(id, { stop: () => liveChat.stop() });
         res.json({ status: 'joined', id });
     } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/youtube/leave', (req, res) => {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'ID is required' });
+
+    if (activeChats.has(id)) {
+        console.log(`Stopping YT: ${id}`);
+        const chat = activeChats.get(id);
+        if (chat && chat.stop) {
+            try {
+                chat.stop();
+            } catch (e) {
+                console.error(`Error stopping chat ${id}:`, e);
+            }
+        }
+        activeChats.delete(id);
+        messageBuffers.delete(id);
+        res.json({ status: 'left', id });
+    } else {
+        res.status(404).json({ error: 'Chat not active' });
+    }
 });
 
 app.get('/api/youtube/messages', (req, res) => {

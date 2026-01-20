@@ -1,4 +1,4 @@
-import { getUserHistory, searchComments, deleteComments, CommentRecord, getUserColor, setUserColor } from './db';
+import { getUserHistory, searchComments, deleteComments, CommentRecord, getUserColor, setUserColor, getUserSettings, setUserSettings } from './db';
 import { emit, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
@@ -10,6 +10,11 @@ const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement;
 const userSettingsDiv = document.getElementById('user-settings') as HTMLDivElement;
 const userColorPicker = document.getElementById('user-color-picker') as HTMLInputElement;
 const resetColorBtn = document.getElementById('reset-color-btn') as HTMLButtonElement;
+const muteUserCheck = document.getElementById('mute-user-check') as HTMLInputElement;
+const muteTtsCheck = document.getElementById('mute-tts-check') as HTMLInputElement;
+const ttsVolumeDefaultBtn = document.getElementById('tts-volume-default-btn') as HTMLButtonElement;
+const ttsVolumeSlider = document.getElementById('tts-volume-slider') as HTMLInputElement;
+const ttsVolumeValue = document.getElementById('tts-volume-value') as HTMLSpanElement;
 
 const params = new URLSearchParams(window.location.search);
 const userId = params.get('user_id');
@@ -67,9 +72,12 @@ async function init() {
 
         // After data load, try to set color picker
         if (userSettingsDiv && userId) {
+            // Load and platform determination
             const history = await getUserHistory(userId, platform, 1);
-            if (history.length > 0) {
-                const currentPlatform = platform || history[0].platform;
+            const currentPlatform = platform || (history.length > 0 ? history[0].platform : null);
+
+            if (currentPlatform) {
+                // Color Settings
                 const color = await getUserColor(currentPlatform, userId);
                 if (color) {
                     userColorPicker.value = color;
@@ -84,7 +92,6 @@ async function init() {
                     const newColor = userColorPicker.value;
                     await setUserColor(currentPlatform, userId, newColor);
                     userTitle.style.color = newColor;
-                    // Emit event to main window
                     emit('color-update', { platform: currentPlatform, userId, color: newColor });
                 });
 
@@ -94,6 +101,60 @@ async function init() {
                     userTitle.style.color = defColor;
                     await setUserColor(currentPlatform, userId, defColor);
                     emit('color-update', { platform: currentPlatform, userId, color: defColor });
+                });
+
+                // Audio & Mute Settings
+                const settings = await getUserSettings(currentPlatform, userId);
+
+                let isDefaultVolume = true;
+
+                if (settings) {
+                    muteUserCheck.checked = !!settings.is_muted;
+                    muteTtsCheck.checked = !!settings.tts_muted;
+                    if (settings.volume === -1) {
+                        isDefaultVolume = true;
+                        ttsVolumeSlider.value = '100'; // Default visual
+                        ttsVolumeValue.textContent = 'Def';
+                    } else {
+                        isDefaultVolume = false;
+                        ttsVolumeSlider.value = settings.volume.toString();
+                        ttsVolumeValue.textContent = settings.volume.toString();
+                    }
+                }
+
+                const getVol = () => parseInt(ttsVolumeSlider.value, 10);
+
+                const updateSettings = async () => {
+                    const vol = isDefaultVolume ? -1 : getVol();
+                    ttsVolumeValue.textContent = isDefaultVolume ? 'Def' : ttsVolumeSlider.value;
+
+                    const newSettings = {
+                        is_muted: muteUserCheck.checked ? 1 : 0,
+                        tts_muted: muteTtsCheck.checked ? 1 : 0,
+                        volume: vol
+                    };
+
+                    await setUserSettings(currentPlatform, userId, newSettings);
+                    emit('user-settings-update', { platform: currentPlatform, user_id: userId, ...newSettings });
+                };
+
+                muteUserCheck.addEventListener('change', () => updateSettings());
+                muteTtsCheck.addEventListener('change', () => updateSettings());
+
+                if (ttsVolumeDefaultBtn) {
+                    ttsVolumeDefaultBtn.addEventListener('click', () => {
+                        isDefaultVolume = true;
+                        ttsVolumeSlider.value = '100';
+                        updateSettings();
+                    });
+                }
+
+                ttsVolumeSlider.addEventListener('input', () => {
+                    ttsVolumeValue.textContent = ttsVolumeSlider.value;
+                });
+                ttsVolumeSlider.addEventListener('change', () => {
+                    isDefaultVolume = false;
+                    updateSettings();
                 });
             }
         }

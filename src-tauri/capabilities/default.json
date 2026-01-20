@@ -4,7 +4,9 @@
   "description": "enables the default permissions",
   "windows": [
     "main",
-    "history-*"
+    "history-*",
+    "muted-users",
+    "options"
   ],
   "permissions": [
     "core:default",
