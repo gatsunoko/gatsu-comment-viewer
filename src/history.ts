@@ -1,5 +1,5 @@
 import { getUserHistory, searchComments, deleteComments, CommentRecord, getUserColor, setUserColor } from './db';
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 const historyContainer = document.getElementById('history-container')!;
@@ -251,7 +251,7 @@ async function loadData(append: boolean) {
     }
 }
 
-function renderItem(record: CommentRecord) {
+function createHistoryItem(record: CommentRecord): HTMLElement {
     const div = document.createElement('div');
     div.className = 'history-item';
 
@@ -301,8 +301,51 @@ function renderItem(record: CommentRecord) {
         });
     }
 
-    historyContainer.appendChild(div);
+    return div;
 }
+
+function renderItem(record: CommentRecord) {
+    historyContainer.appendChild(createHistoryItem(record));
+}
+
+// Real-time Updates
+listen('new-comment', (event: any) => {
+    const record = event.payload as CommentRecord;
+    let shouldAdd = false;
+
+    if (mode === 'user') {
+        // Check if this comment belongs to the user we are viewing
+        if (record.user_id === userId && (!platform || record.platform === platform || platform === record.platform)) {
+            shouldAdd = true;
+        }
+    } else {
+        // Global mode
+        // Filter by current query if exists
+        if (!currentQuery.trim()) {
+            shouldAdd = true;
+        } else {
+            const q = currentQuery.toLowerCase();
+            if ((record.message && record.message.toLowerCase().includes(q)) ||
+                (record.username && record.username.toLowerCase().includes(q)) ||
+                (record.channel_id && record.channel_id.toLowerCase().includes(q))) {
+                shouldAdd = true;
+            }
+        }
+    }
+
+    if (shouldAdd) {
+        // Prepend to history container
+        const item = createHistoryItem(record);
+
+        // If we are at the top, just prepend.
+        // If we have "No comments found" placeholder, remove it.
+        if (historyContainer.innerHTML.includes('No comments found')) {
+            historyContainer.innerHTML = '';
+        }
+
+        historyContainer.prepend(item);
+    }
+});
 
 init();
 

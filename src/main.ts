@@ -88,7 +88,7 @@ initDb();
 loadUserColors();
 
 // Listen for color updates from history window
-import { listen } from '@tauri-apps/api/event';
+import { listen, emit } from '@tauri-apps/api/event';
 listen('color-update', (event: any) => {
   // Expected payload: { platform: string, userId: string, color: string }
   const { platform, userId, color } = event.payload;
@@ -316,6 +316,18 @@ const addComment = (channel: string, userId: string, username: string, messageHT
   const textContent = tempDiv.textContent || tempDiv.innerText || '';
   if (source !== 'system') {
     speak(textContent);
+
+    // Emit event for history windows
+    const timestamp = new Date().toISOString();
+    emit('new-comment', {
+      id: -1, // ID not known yet, but not critical for display
+      platform: source,
+      channel_id: channel, // Note: channel might be cleaned or ID
+      user_id: userId,
+      username: username,
+      message: messageHTML, // Use HTML to preserve emotes
+      timestamp: timestamp
+    });
   }
 }
 
