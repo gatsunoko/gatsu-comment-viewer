@@ -501,19 +501,7 @@ commentsContainer.addEventListener('scroll', () => {
   }
 });
 
-historyBtn.addEventListener('click', () => {
-  const label = `history-global-${Date.now()}`;
-  const webview = new WebviewWindow(label, {
-    url: `history.html`,
-    title: `Global History`,
-    width: 600,
-    height: 800
-  });
-  webview.once('tauri://error', (e) => {
-    console.error('[History] Window Error:', e);
-    alert(`Failed to create history window: ${JSON.stringify(e)}`);
-  });
-});
+
 
 startBtn.addEventListener('click', async () => {
   const url = urlInput.value;
